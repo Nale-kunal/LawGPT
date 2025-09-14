@@ -2,95 +2,136 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
+/* Legal Professional Design System - Indian Theme */
 
 @layer base {
   :root {
+    /* Core Legal Colors */
     --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-
+    --foreground: 220 15% 8%;
+    
+    /* Legal Professional Palette */
+    --primary: 220 70% 15%;        /* Deep Navy - Authority & Trust */
+    --primary-foreground: 0 0% 98%;
+    --primary-hover: 220 70% 20%;
+    
+    --secondary: 35 100% 45%;      /* Indian Saffron Accent */
+    --secondary-foreground: 0 0% 100%;
+    --secondary-hover: 35 100% 40%;
+    
+    --accent: 142 71% 45%;         /* Success Green */
+    --accent-foreground: 0 0% 100%;
+    
+    --muted: 220 13% 95%;
+    --muted-foreground: 220 9% 46%;
+    
+    /* Status Colors */
+    --success: 142 71% 45%;        /* Case Won */
+    --success-foreground: 0 0% 100%;
+    
+    --warning: 43 96% 56%;         /* Pending/Alert */
+    --warning-foreground: 220 15% 8%;
+    
+    --destructive: 0 84% 60%;      /* Critical/Urgent */
+    --destructive-foreground: 0 0% 100%;
+    
+    /* UI Elements */
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-
+    --card-foreground: 220 15% 8%;
+    --card-border: 220 13% 91%;
+    
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
-
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
-
-    --radius: 0.5rem;
-
+    --popover-foreground: 220 15% 8%;
+    
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 220 70% 15%;
+    
+    /* Sidebar Variables */
     --sidebar-background: 0 0% 98%;
-
     --sidebar-foreground: 240 5.3% 26.1%;
-
     --sidebar-primary: 240 5.9% 10%;
-
     --sidebar-primary-foreground: 0 0% 98%;
-
     --sidebar-accent: 240 4.8% 95.9%;
-
     --sidebar-accent-foreground: 240 5.9% 10%;
-
     --sidebar-border: 220 13% 91%;
-
     --sidebar-ring: 217.2 91.2% 59.8%;
+    
+    /* Professional Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(220 70% 15%), hsl(220 70% 25%));
+    --gradient-secondary: linear-gradient(135deg, hsl(35 100% 45%), hsl(35 100% 55%));
+    --gradient-hero: linear-gradient(135deg, hsl(220 70% 15%) 0%, hsl(35 100% 45%) 100%);
+    --gradient-card: linear-gradient(145deg, hsl(0 0% 100%) 0%, hsl(220 13% 98%) 100%);
+    
+    /* Professional Shadows */
+    --shadow-card: 0 4px 6px -1px hsl(220 70% 15% / 0.1), 0 2px 4px -1px hsl(220 70% 15% / 0.06);
+    --shadow-elevated: 0 10px 15px -3px hsl(220 70% 15% / 0.1), 0 4px 6px -2px hsl(220 70% 15% / 0.05);
+    --shadow-professional: 0 20px 25px -5px hsl(220 70% 15% / 0.1), 0 10px 10px -5px hsl(220 70% 15% / 0.04);
+    
+    /* Animations */
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-spring: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    
+    --radius: 0.75rem;
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    /* Dark Mode Legal Colors */
+    --background: 220 15% 8%;
+    --foreground: 0 0% 98%;
+    
+    /* Legal Professional Palette - Dark */
+    --primary: 35 100% 55%;        /* Brighter Saffron for Dark */
+    --primary-foreground: 220 15% 8%;
+    --primary-hover: 35 100% 60%;
+    
+    --secondary: 220 70% 25%;      /* Lighter Navy */
+    --secondary-foreground: 0 0% 98%;
+    --secondary-hover: 220 70% 30%;
+    
+    --accent: 142 71% 50%;         /* Brighter Success Green */
+    --accent-foreground: 220 15% 8%;
+    
+    --muted: 220 13% 15%;
+    --muted-foreground: 220 9% 65%;
+    
+    /* Status Colors - Dark */
+    --success: 142 71% 50%;
+    --success-foreground: 220 15% 8%;
+    
+    --warning: 43 96% 65%;
+    --warning-foreground: 220 15% 8%;
+    
+    --destructive: 0 84% 65%;
+    --destructive-foreground: 220 15% 8%;
+    
+    /* UI Elements - Dark */
+    --card: 220 13% 12%;
+    --card-foreground: 0 0% 98%;
+    --card-border: 220 13% 20%;
+    
+    --popover: 220 13% 12%;
+    --popover-foreground: 0 0% 98%;
+    
+    --border: 220 13% 20%;
+    --input: 220 13% 15%;
+    --ring: 35 100% 55%;
+    
+    /* Sidebar - Dark */
+    --sidebar-background: 220 13% 10%;
+    --sidebar-foreground: 0 0% 90%;
+    --sidebar-primary: 35 100% 55%;
+    --sidebar-primary-foreground: 220 15% 8%;
+    --sidebar-accent: 220 13% 15%;
+    --sidebar-accent-foreground: 0 0% 90%;
+    --sidebar-border: 220 13% 18%;
+    --sidebar-ring: 35 100% 55%;
+    
+    /* Professional Gradients - Dark */
+    --gradient-primary: linear-gradient(135deg, hsl(35 100% 55%), hsl(35 100% 65%));
+    --gradient-secondary: linear-gradient(135deg, hsl(220 70% 25%), hsl(220 70% 35%));
+    --gradient-hero: linear-gradient(135deg, hsl(220 15% 8%) 0%, hsl(35 100% 55%) 100%);
+    --gradient-card: linear-gradient(145deg, hsl(220 13% 12%) 0%, hsl(220 13% 15%) 100%);
   }
 }
 
@@ -101,5 +142,31 @@ All colors MUST be HSL.
 
   body {
     @apply bg-background text-foreground;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+  
+  /* Professional Legal Styling */
+  .legal-gradient {
+    background: var(--gradient-hero);
+  }
+  
+  .card-gradient {
+    background: var(--gradient-card);
+  }
+  
+  .shadow-professional {
+    box-shadow: var(--shadow-professional);
+  }
+  
+  .shadow-elevated {
+    box-shadow: var(--shadow-elevated);
+  }
+  
+  .transition-smooth {
+    transition: var(--transition-smooth);
+  }
+  
+  .transition-spring {
+    transition: var(--transition-spring);
   }
 }
