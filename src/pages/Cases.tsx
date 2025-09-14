@@ -21,6 +21,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { CaseConflictChecker } from '@/components/CaseConflictChecker';
+import { CaseSummaryGenerator } from '@/components/CaseSummaryGenerator';
 
 const Cases = () => {
   const { cases, addCase, updateCase, deleteCase } = useLegalData();
@@ -450,7 +452,7 @@ const Cases = () => {
                 </Button>
                 <Button 
                   size="sm" 
-                  variant="destructive"
+                  variant="outline"
                   onClick={() => {
                     if (confirm('Are you sure you want to delete this case?')) {
                       deleteCase(case_.id);
@@ -472,7 +474,7 @@ const Cases = () => {
             <h3 className="text-lg font-semibold mb-2">No cases found</h3>
             <p className="text-muted-foreground mb-4">
               {searchTerm || statusFilter !== 'all' || priorityFilter !== 'all' 
-                ? 'No cases match your current filters.' 
+                ? 'No cases match your search criteria.' 
                 : 'Start by adding your first case.'
               }
             </p>
@@ -482,6 +484,14 @@ const Cases = () => {
             </Button>
           </CardContent>
         </Card>
+      )}
+
+      {/* AI Conflict Checker */}
+      <CaseConflictChecker currentCase={selectedCase} />
+
+      {/* AI Case Summary Generator */}
+      {selectedCase && (
+        <CaseSummaryGenerator caseId={selectedCase.id} />
       )}
     </div>
   );

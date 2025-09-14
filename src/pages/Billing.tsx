@@ -226,7 +226,23 @@ const Billing = () => {
             </DialogContent>
           </Dialog>
 
-          <Button>
+          <Button onClick={() => {
+            // Create a mock invoice
+            const newInvoice = {
+              id: Date.now().toString(),
+              clientName: clients[0]?.name || 'New Client',
+              invoiceNumber: `INV-2024-${(Math.floor(Math.random() * 900) + 100).toString().padStart(3, '0')}`,
+              amount: Math.floor(Math.random() * 100000) + 10000,
+              status: 'draft' as const,
+              dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+              createdDate: new Date(),
+              timeEntries: []
+            };
+            toast({
+              title: "Invoice Created",
+              description: `Invoice ${newInvoice.invoiceNumber} has been created for ₹${newInvoice.amount.toLocaleString('en-IN')}`,
+            });
+          }}>
             <Plus className="mr-2 h-4 w-4" />
             Create Invoice
           </Button>

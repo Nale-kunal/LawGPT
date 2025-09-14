@@ -32,7 +32,12 @@ export const Header = () => {
 
       <div className="flex items-center gap-4">
         {/* Notifications */}
-        <Button variant="ghost" size="sm" className="relative">
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          className="relative"
+          onClick={() => window.location.href = '/dashboard'}
+        >
           <Bell className="h-4 w-4" />
           {unreadAlerts > 0 && (
             <Badge 
@@ -70,7 +75,7 @@ export const Header = () => {
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
+            <DropdownMenuItem onClick={() => window.location.href = '/settings'}>
               <User className="mr-2 h-4 w-4" />
               <span>Profile</span>
             </DropdownMenuItem>

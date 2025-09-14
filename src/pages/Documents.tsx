@@ -137,11 +137,25 @@ const Documents = () => {
   });
 
   const handleFileUpload = () => {
-    // Simulate file upload
-    toast({
-      title: "Upload Started",
-      description: "Your documents are being uploaded...",
-    });
+    // Create file input element
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.multiple = true;
+    input.accept = '.pdf,.doc,.docx,.jpg,.jpeg,.png,.mp4,.mp3';
+    
+    input.onchange = (event) => {
+      const files = (event.target as HTMLInputElement).files;
+      if (files) {
+        Array.from(files).forEach(file => {
+          toast({
+            title: "File Uploaded",
+            description: `${file.name} (${formatFileSize(file.size)}) has been uploaded successfully.`,
+          });
+        });
+      }
+    };
+    
+    input.click();
   };
 
   const handleDownload = (doc: Document) => {

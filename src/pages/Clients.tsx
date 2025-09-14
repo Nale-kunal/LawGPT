@@ -358,11 +358,21 @@ const Clients = () => {
                 </div>
 
                 <div className="flex gap-2 mt-4 pt-3 border-t">
-                  <Button size="sm" variant="outline" className="flex-1">
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    className="flex-1"
+                    onClick={() => window.open(`tel:${client.phone}`, '_self')}
+                  >
                     <Phone className="mr-2 h-3 w-3" />
                     Call
                   </Button>
-                  <Button size="sm" variant="outline" className="flex-1">
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    className="flex-1"
+                    onClick={() => window.open(`mailto:${client.email}`, '_self')}
+                  >
                     <Mail className="mr-2 h-3 w-3" />
                     Email
                   </Button>

@@ -52,6 +52,31 @@ const Calendar = () => {
     });
   };
 
+  // Check for conflicts (same court, overlapping times)
+  const getConflictsForDate = (date: Date) => {
+    const casesForDay = getCasesForDate(date);
+    const conflicts: string[] = [];
+    
+    casesForDay.forEach((case1, i) => {
+      casesForDay.slice(i + 1).forEach(case2 => {
+        if (case1.courtName === case2.courtName) {
+          const time1 = case1.hearingTime || '10:00';
+          const time2 = case2.hearingTime || '10:00';
+          const timeDiff = Math.abs(
+            new Date(`2000-01-01 ${time1}`).getTime() - 
+            new Date(`2000-01-01 ${time2}`).getTime()
+          );
+          
+          if (timeDiff < 2 * 60 * 60 * 1000) { // Less than 2 hours apart
+            conflicts.push(`${case1.caseNumber} & ${case2.caseNumber}`);
+          }
+        }
+      });
+    });
+    
+    return conflicts;
+  };
+
   // Navigate months
   const previousMonth = () => {
     setCurrentDate(new Date(currentYear, currentMonth - 1, 1));
@@ -142,6 +167,7 @@ const Calendar = () => {
 
                 const date = new Date(currentYear, currentMonth, day);
                 const casesForDay = getCasesForDate(date);
+                const conflictsForDay = getConflictsForDate(date);
                 const isSelected = selectedDate?.toDateString() === date.toDateString();
 
                 return (
@@ -152,7 +178,8 @@ const Calendar = () => {
                       "p-2 h-16 border rounded-lg cursor-pointer transition-colors hover:bg-muted",
                       isToday(day) && "bg-primary text-primary-foreground",
                       isSelected && !isToday(day) && "bg-accent text-accent-foreground",
-                      casesForDay.length > 0 && "border-primary"
+                      casesForDay.length > 0 && "border-primary",
+                      conflictsForDay.length > 0 && "border-destructive bg-destructive/5"
                     )}
                   >
                     <div className="text-sm font-medium">{day}</div>
@@ -174,6 +201,11 @@ const Calendar = () => {
                             <span className="text-xs">+{casesForDay.length - 2}</span>
                           )}
                         </div>
+                        {conflictsForDay.length > 0 && (
+                          <div className="text-xs text-destructive font-medium mt-1">
+                            ⚠ Conflict
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

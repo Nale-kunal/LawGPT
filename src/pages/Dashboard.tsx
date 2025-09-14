@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useLegalData } from '@/contexts/LegalDataContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { AlertManager } from '@/components/AlertManager';
 
 const Dashboard = () => {
   const { cases, clients, alerts } = useLegalData();
@@ -126,7 +127,11 @@ const Dashboard = () => {
                   </div>
                 ))}
                 {todaysCases.length > 3 && (
-                  <Button variant="outline" className="w-full">
+                  <Button 
+                    variant="outline" 
+                    className="w-full"
+                    onClick={() => window.location.href = '/calendar'}
+                  >
                     View All {todaysCases.length} Hearings
                   </Button>
                 )}
@@ -141,46 +146,7 @@ const Dashboard = () => {
         </Card>
 
         {/* Recent Alerts */}
-        <Card className="shadow-elevated">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-warning" />
-              Recent Alerts
-            </CardTitle>
-            <CardDescription>Important notifications and reminders</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {alerts.length > 0 ? (
-              <div className="space-y-3">
-                {alerts.slice(0, 4).map((alert) => (
-                  <div key={alert.id} className={`p-3 rounded-lg border ${
-                    alert.isRead ? 'bg-muted/50' : 'bg-warning/10 border-warning/20'
-                  }`}>
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <p className="text-sm font-medium">{alert.message}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {alert.alertTime.toLocaleString('en-IN')}
-                        </p>
-                      </div>
-                      {!alert.isRead && (
-                        <Badge variant="destructive" className="ml-2">New</Badge>
-                      )}
-                    </div>
-                  </div>
-                ))}
-                <Button variant="outline" className="w-full">
-                  View All Alerts
-                </Button>
-              </div>
-            ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                <AlertTriangle className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                <p>No recent alerts</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <AlertManager />
 
         {/* Quick Actions */}
         <Card className="shadow-elevated">
@@ -192,24 +158,39 @@ const Dashboard = () => {
             <CardDescription>Common tasks and shortcuts</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 gap-3">
-              <Button className="h-20 flex flex-col gap-2">
-                <FileText className="h-5 w-5" />
-                <span className="text-xs">New Case</span>
-              </Button>
-              <Button variant="secondary" className="h-20 flex flex-col gap-2">
-                <Users className="h-5 w-5" />
-                <span className="text-xs">Add Client</span>
-              </Button>
-              <Button variant="outline" className="h-20 flex flex-col gap-2">
-                <Calendar className="h-5 w-5" />
-                <span className="text-xs">Schedule</span>
-              </Button>
-              <Button variant="outline" className="h-20 flex flex-col gap-2">
-                <IndianRupee className="h-5 w-5" />
-                <span className="text-xs">Billing</span>
-              </Button>
-            </div>
+              <div className="grid grid-cols-2 gap-3">
+                <Button 
+                  className="h-20 flex flex-col gap-2"
+                  onClick={() => window.location.href = '/cases'}
+                >
+                  <FileText className="h-5 w-5" />
+                  <span className="text-xs">New Case</span>
+                </Button>
+                <Button 
+                  variant="secondary" 
+                  className="h-20 flex flex-col gap-2"
+                  onClick={() => window.location.href = '/clients'}
+                >
+                  <Users className="h-5 w-5" />
+                  <span className="text-xs">Add Client</span>
+                </Button>
+                <Button 
+                  variant="outline" 
+                  className="h-20 flex flex-col gap-2"
+                  onClick={() => window.location.href = '/calendar'}
+                >
+                  <Calendar className="h-5 w-5" />
+                  <span className="text-xs">Schedule</span>
+                </Button>
+                <Button 
+                  variant="outline" 
+                  className="h-20 flex flex-col gap-2"
+                  onClick={() => window.location.href = '/billing'}
+                >
+                  <IndianRupee className="h-5 w-5" />
+                  <span className="text-xs">Billing</span>
+                </Button>
+              </div>
           </CardContent>
         </Card>
 
