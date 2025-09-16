@@ -99,6 +99,13 @@ const Settings = () => {
     });
   };
 
+  const handleSystemPreferencesUpdate = () => {
+    toast({
+      title: "System Preferences Updated",
+      description: "Your system preferences have been updated successfully.",
+    });
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}

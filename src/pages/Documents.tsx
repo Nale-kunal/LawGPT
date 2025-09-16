@@ -20,19 +20,21 @@ import {
 } from 'lucide-react';
 import { useLegalData } from '@/contexts/LegalDataContext';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 
 interface Document {
   id: string;
   name: string;
-  type: 'pdf' | 'doc' | 'docx' | 'image' | 'video' | 'audio' | 'other';
+  type: 'pdf' | 'doc' | 'docx' | 'image' | 'video' | 'audio' | 'other' | 'folder';
   size: number;
   uploadDate: Date;
   caseId?: string;
   clientId?: string;
-  category: 'evidence' | 'contract' | 'court-order' | 'correspondence' | 'other';
-  tags: string[];
-  url: string;
+  category: string;
+  tags?: string[];
+  url?: string;
 }
 
 const Documents = () => {
@@ -41,10 +43,11 @@ const Documents = () => {
   const [typeFilter, setTypeFilter] = useState('all');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [caseFilter, setCaseFilter] = useState('all');
+  const [createFolderOpen, setCreateFolderOpen] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
   const { toast } = useToast();
 
-  // Mock documents data - in real app, this would come from context or API
-  const [documents] = useState<Document[]>([
+  const [documents, setDocuments] = useState<Document[]>([
     {
       id: '1',
       name: 'Contract Agreement.pdf',
@@ -198,10 +201,38 @@ const Documents = () => {
             <Upload className="mr-2 h-4 w-4" />
             Upload Documents
           </Button>
-          <Button>
-            <FolderOpen className="mr-2 h-4 w-4" />
-            Create Folder
-          </Button>
+          <Dialog open={createFolderOpen} onOpenChange={setCreateFolderOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <FolderOpen className="mr-2 h-4 w-4" />
+                Create Folder
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Create New Folder</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="folderName">Folder Name</Label>
+                  <Input
+                    id="folderName"
+                    placeholder="Enter folder name"
+                    value={newFolderName}
+                    onChange={(e) => setNewFolderName(e.target.value)}
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <Button onClick={handleCreateFolder} className="flex-1">
+                    Create Folder
+                  </Button>
+                  <Button variant="outline" onClick={() => setCreateFolderOpen(false)}>
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 
