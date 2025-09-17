@@ -14,18 +14,6 @@ import {
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useLegalData } from '@/contexts/LegalDataContext';
-import {
-  Sidebar as SidebarComponent,
-  SidebarContent,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarHeader,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  useSidebar,
-} from '@/components/ui/sidebar';
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -41,78 +29,58 @@ const navigation = [
 export const Sidebar = () => {
   const location = useLocation();
   const { alerts } = useLegalData();
-  const { state } = useSidebar();
   const unreadAlerts = alerts.filter(alert => !alert.isRead).length;
 
   return (
-    <SidebarComponent 
-      className="border-sidebar-border"
-      collapsible="icon"
-    >
-      <SidebarHeader className="border-b border-sidebar-border">
-        <div className="flex items-center gap-2 px-4 py-3">
-          <Scale className="h-8 w-8 text-primary flex-shrink-0" />
-          {state !== "collapsed" && (
-            <div className="min-w-0">
-              <h1 className="text-xl font-bold text-sidebar-foreground truncate">LegalPro</h1>
-              <p className="text-xs text-sidebar-foreground/60 truncate">Indian Law Management</p>
-            </div>
+    <div className="flex flex-col w-64 bg-sidebar border-r border-sidebar-border">
+      {/* Logo */}
+      <div className="flex items-center gap-2 p-6 border-b border-sidebar-border">
+        <Scale className="h-8 w-8 text-primary" />
+        <div>
+          <h1 className="text-xl font-bold text-sidebar-foreground">LegalPro</h1>
+          <p className="text-xs text-sidebar-foreground/60">Indian Law Management</p>
+        </div>
+      </div>
+
+      {/* Navigation */}
+      <nav className="flex-1 p-4 space-y-2">
+        {navigation.map((item) => {
+          const isActive = location.pathname === item.href;
+          return (
+            <Link
+              key={item.name}
+              to={item.href}
+              className={cn(
+                "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                isActive
+                  ? "bg-sidebar-accent text-sidebar-primary-foreground"
+                  : "text-sidebar-foreground hover:bg-sidebar-accent/50"
+              )}
+            >
+              <item.icon className="h-4 w-4" />
+              {item.name}
+              {item.name === 'Dashboard' && unreadAlerts > 0 && (
+                <Badge variant="destructive" className="ml-auto text-xs">
+                  {unreadAlerts}
+                </Badge>
+              )}
+            </Link>
+          );
+        })}
+      </nav>
+
+      {/* Alerts Section */}
+      <div className="p-4 border-t border-sidebar-border">
+        <div className="flex items-center gap-2 text-sidebar-foreground">
+          <Bell className="h-4 w-4" />
+          <span className="text-sm font-medium">Notifications</span>
+          {unreadAlerts > 0 && (
+            <Badge variant="destructive" className="text-xs">
+              {unreadAlerts}
+            </Badge>
           )}
         </div>
-      </SidebarHeader>
-
-      <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>Navigation</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {navigation.map((item) => {
-                const isActive = location.pathname === item.href;
-                return (
-                  <SidebarMenuItem key={item.name}>
-                    <SidebarMenuButton 
-                      asChild
-                      className={cn(
-                        isActive && "bg-sidebar-accent text-sidebar-accent-foreground"
-                      )}
-                    >
-                      <Link to={item.href} className="flex items-center gap-3">
-                        <item.icon className="h-4 w-4" />
-                        <span>{item.name}</span>
-                        {item.name === 'Dashboard' && unreadAlerts > 0 && (
-                          <Badge variant="destructive" className="ml-auto text-xs h-5 w-5 rounded-full p-0 flex items-center justify-center">
-                            {unreadAlerts}
-                          </Badge>
-                        )}
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        <SidebarGroup>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild>
-                  <Link to="/dashboard" className="flex items-center gap-2">
-                    <Bell className="h-4 w-4" />
-                    <span>Notifications</span>
-                    {unreadAlerts > 0 && (
-                      <Badge variant="destructive" className="ml-auto text-xs h-5 w-5 rounded-full p-0 flex items-center justify-center">
-                        {unreadAlerts}
-                      </Badge>
-                    )}
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-      </SidebarContent>
-    </SidebarComponent>
+      </div>
+    </div>
   );
 };

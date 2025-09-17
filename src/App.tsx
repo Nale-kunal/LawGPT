@@ -5,7 +5,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 import { LegalDataProvider } from "./contexts/LegalDataContext";
-import { ThemeProvider } from "./contexts/ThemeContext";
 
 // Import Pages
 import Index from "./pages/Index";
@@ -34,38 +33,36 @@ const queryClient = new QueryClient({
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <ThemeProvider defaultTheme="light" storageKey="legal-pro-theme">
-      <AuthProvider>
-        <LegalDataProvider>
-          <TooltipProvider>
-            <Toaster />
-            <Sonner />
-            <BrowserRouter>
-              <Routes>
-                {/* Public Routes */}
-                <Route path="/" element={<Index />} />
-                <Route path="/login" element={<Login />} />
-                
-                {/* Protected Dashboard Routes */}
-                <Route path="/dashboard" element={<DashboardLayout />}>
-                  <Route index element={<Dashboard />} />
-                  <Route path="cases" element={<Cases />} />
-                  <Route path="calendar" element={<Calendar />} />
-                  <Route path="clients" element={<Clients />} />
-                  <Route path="legal-research" element={<LegalResearch />} />
-                  <Route path="billing" element={<Billing />} />
-                  <Route path="documents" element={<Documents />} />
-                  <Route path="settings" element={<Settings />} />
-                </Route>
-                
-                {/* Catch All Route */}
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </BrowserRouter>
-          </TooltipProvider>
-        </LegalDataProvider>
-      </AuthProvider>
-    </ThemeProvider>
+    <AuthProvider>
+      <LegalDataProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Routes>
+              {/* Public Routes */}
+              <Route path="/" element={<Index />} />
+              <Route path="/login" element={<Login />} />
+              
+              {/* Protected Dashboard Routes */}
+              <Route path="/dashboard" element={<DashboardLayout />}>
+                <Route index element={<Dashboard />} />
+                <Route path="cases" element={<Cases />} />
+                <Route path="calendar" element={<Calendar />} />
+                <Route path="clients" element={<Clients />} />
+                <Route path="legal-research" element={<LegalResearch />} />
+                <Route path="billing" element={<Billing />} />
+                <Route path="documents" element={<Documents />} />
+                <Route path="settings" element={<Settings />} />
+              </Route>
+              
+              {/* Catch All Route */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </TooltipProvider>
+      </LegalDataProvider>
+    </AuthProvider>
   </QueryClientProvider>
 );
 
