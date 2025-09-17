@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useToast } from '@/hooks/use-toast';
@@ -19,7 +19,7 @@ import {
   Clock, 
   FileText, 
   User, 
-  Calendar,
+  CalendarDays,
   Download,
   Send,
   Filter,
@@ -27,6 +27,8 @@ import {
   Eye
 } from 'lucide-react';
 import { useLegalData, TimeEntry } from '@/contexts/LegalDataContext';
+
+interface Invoice {
   id: string;
   clientName: string;
   invoiceNumber: string;
@@ -43,6 +45,9 @@ const Billing = () => {
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [emailModalOpen, setEmailModalOpen] = useState(false);
+  const [invoicePreviewOpen, setInvoicePreviewOpen] = useState(false);
+  const [recipientEmail, setRecipientEmail] = useState('');
   const { toast } = useToast();
 
   // Mock invoices data - in real app, this would come from context
@@ -131,7 +136,7 @@ const Billing = () => {
   };
 
   const generateInvoiceHTML = () => {
-    const totalAmount = timeEntries.reduce((sum, entry) => sum + (entry.hours * 2000), 0);
+    const totalAmount = timeEntries.reduce((sum, entry) => sum + (entry.duration / 60 * 2000), 0);
     
     return `
       <div style="max-width: 800px; margin: 0 auto; font-family: Arial, sans-serif; line-height: 1.6;">
@@ -615,9 +620,9 @@ const Billing = () => {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
-  );
-};
+
+      {/* Payment Overview */}
+      <Card className="shadow-card-custom">
         <CardHeader>
           <CardTitle>Payment Overview</CardTitle>
           <CardDescription>Monthly payment status and trends</CardDescription>

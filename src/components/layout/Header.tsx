@@ -29,15 +29,15 @@ export const Header = () => {
     <header className="flex items-center justify-between px-3 md:px-6 py-4 bg-card border-b border-border">
       <div className="flex items-center gap-2 md:gap-4">
         <SidebarTrigger />
-        <div className="flex items-center gap-2 md:gap-3">
-          <Scale className="h-6 w-6 md:h-8 md:w-8 text-primary" />
-          <div>
+        <div className="flex items-center gap-2">
+          <Scale className="h-6 w-6 md:h-8 md:w-8 text-primary flex-shrink-0" />
+          <div className="hidden sm:block">
             <h1 className="text-lg md:text-xl font-bold text-foreground">LegalPro</h1>
             <p className="text-xs text-muted-foreground hidden md:block">Indian Law Management</p>
           </div>
         </div>
-        <div className="hidden sm:block ml-4 md:ml-6">
-          <h2 className="text-sm md:text-base font-medium text-foreground">
+        <div className="hidden lg:block ml-4">
+          <h2 className="text-sm md:text-base font-medium text-foreground truncate">
             Welcome back, {user?.name}
           </h2>
         </div>

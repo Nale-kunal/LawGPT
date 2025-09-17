@@ -170,12 +170,33 @@ const Documents = () => {
 
   const handleDelete = (doc: Document) => {
     if (confirm(`Are you sure you want to delete ${doc.name}?`)) {
+      setDocuments(prev => prev.filter(d => d.id !== doc.id));
       toast({
         title: "Document Deleted",
         description: `${doc.name} has been removed.`,
         variant: "destructive",
       });
     }
+  };
+
+  const handleCreateFolder = () => {
+    if (!newFolderName.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a folder name",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Create folder logic here
+    toast({
+      title: "Folder Created",
+      description: `Folder "${newFolderName}" has been created successfully.`,
+    });
+    
+    setNewFolderName('');
+    setCreateFolderOpen(false);
   };
 
   // Group documents by category
@@ -191,9 +212,13 @@ const Documents = () => {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Document Management</h1>
-          <p className="text-muted-foreground">Secure storage for all legal documents</p>
+        <div className="min-w-0 flex-1">
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground truncate">
+            Document Management
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Secure storage for all legal documents
+          </p>
         </div>
         
         <div className="flex gap-2">

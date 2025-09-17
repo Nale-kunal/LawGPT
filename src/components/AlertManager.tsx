@@ -48,6 +48,7 @@ export const AlertManager = () => {
                   type: 'hearing',
                   message: `Hearing reminder: ${case_.caseNumber} - ${case_.clientName} at ${case_.courtName} in ${hours} hour${hours !== 1 ? 's' : ''}`,
                   alertTime: alertTime,
+                  timestamp: new Date(),
                   isRead: false
                 });
               }, 100);
@@ -73,6 +74,7 @@ export const AlertManager = () => {
       type: alertForm.type,
       message: alertForm.message,
       alertTime: new Date(alertForm.alertTime),
+      timestamp: new Date(),
       isRead: false
     });
 
