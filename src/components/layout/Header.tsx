@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
-import { LogOut, User, Bell, Moon, Sun, Menu, Scale } from 'lucide-react';
+import { LogOut, User, Bell, Moon, Sun, Menu } from 'lucide-react';
 import { useTheme } from '@/contexts/ThemeContext';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import {
@@ -27,20 +27,14 @@ export const Header = () => {
 
   return (
     <header className="flex items-center justify-between px-3 md:px-6 py-4 bg-card border-b border-border">
-      <div className="flex items-center gap-2 md:gap-4">
-        <SidebarTrigger />
-        <div className="flex items-center gap-2">
-          <Scale className="h-6 w-6 md:h-8 md:w-8 text-primary flex-shrink-0" />
-          <div className="hidden sm:block">
-            <h1 className="text-lg md:text-xl font-bold text-foreground">LegalPro</h1>
-            <p className="text-xs text-muted-foreground hidden md:block">Indian Law Management</p>
-          </div>
-        </div>
-        <div className="hidden lg:block ml-4">
-          <h2 className="text-sm md:text-base font-medium text-foreground truncate">
-            Welcome back, {user?.name}
-          </h2>
-        </div>
+      <div className="flex items-center gap-4">
+        <SidebarTrigger className="md:hidden" />
+        <h2 className="text-sm md:text-lg font-semibold text-foreground hidden sm:block">
+          Welcome back, {user?.name}
+        </h2>
+        <h2 className="text-sm font-semibold text-foreground sm:hidden">
+          {user?.name?.split(' ')[0]}
+        </h2>
       </div>
 
       <div className="flex items-center gap-2 md:gap-4">
