@@ -1,6 +1,8 @@
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
-import { LogOut, User, Bell } from 'lucide-react';
+import { LogOut, User, Bell, Moon, Sun, Menu } from 'lucide-react';
+import { useTheme } from '@/contexts/ThemeContext';
+import { SidebarTrigger } from '@/components/ui/sidebar';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,6 +18,7 @@ import { useLegalData } from '@/contexts/LegalDataContext';
 export const Header = () => {
   const { user, logout } = useAuth();
   const { alerts } = useLegalData();
+  const { theme, setTheme } = useTheme();
   const unreadAlerts = alerts.filter(alert => !alert.isRead).length;
 
   const handleLogout = () => {
@@ -23,26 +26,44 @@ export const Header = () => {
   };
 
   return (
-    <header className="flex items-center justify-between px-6 py-4 bg-card border-b border-border">
+    <header className="flex items-center justify-between px-3 md:px-6 py-4 bg-card border-b border-border">
       <div className="flex items-center gap-4">
-        <h2 className="text-lg font-semibold text-foreground">
+        <SidebarTrigger className="md:hidden" />
+        <h2 className="text-sm md:text-lg font-semibold text-foreground hidden sm:block">
           Welcome back, {user?.name}
+        </h2>
+        <h2 className="text-sm font-semibold text-foreground sm:hidden">
+          {user?.name?.split(' ')[0]}
         </h2>
       </div>
 
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2 md:gap-4">
+        {/* Dark Mode Toggle */}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+          className="h-8 w-8 p-0"
+        >
+          {theme === 'dark' ? (
+            <Sun className="h-4 w-4" />
+          ) : (
+            <Moon className="h-4 w-4" />
+          )}
+        </Button>
+
         {/* Notifications */}
         <Button 
           variant="ghost" 
           size="sm" 
-          className="relative"
+          className="relative h-8 w-8 p-0"
           onClick={() => window.location.href = '/dashboard'}
         >
           <Bell className="h-4 w-4" />
           {unreadAlerts > 0 && (
             <Badge 
               variant="destructive" 
-              className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs"
+              className="absolute -top-1 -right-1 h-4 w-4 rounded-full p-0 flex items-center justify-center text-xs"
             >
               {unreadAlerts}
             </Badge>
