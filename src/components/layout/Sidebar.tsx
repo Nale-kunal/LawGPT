@@ -1,4 +1,4 @@
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { 
   LayoutDashboard, 
@@ -35,25 +35,35 @@ const navigation = [
   { name: 'Legal Research', href: '/dashboard/legal-research', icon: BookOpen },
   { name: 'Billing', href: '/dashboard/billing', icon: Receipt },
   { name: 'Documents', href: '/dashboard/documents', icon: FolderOpen },
+  { name: 'Notifications', href: '/dashboard/notifications', icon: Bell },
   { name: 'Settings', href: '/dashboard/settings', icon: Settings },
 ];
 
 export const Sidebar = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const { alerts } = useLegalData();
-  const { state } = useSidebar();
+  const { state, setOpen } = useSidebar();
   const unreadAlerts = alerts.filter(alert => !alert.isRead).length;
+
+  const handleNavigation = (href: string) => {
+    navigate(href);
+    // Auto-collapse sidebar on mobile after navigation
+    if (window.innerWidth < 768) {
+      setOpen(false);
+    }
+  };
 
   return (
     <SidebarComponent 
-      className="border-sidebar-border"
+      className="border-sidebar-border hover:w-64 transition-all duration-300"
       collapsible="icon"
     >
       <SidebarHeader className="border-b border-sidebar-border">
-        <div className="flex items-center gap-2 px-4 py-3">
+        <div className="flex items-center gap-3 px-4 py-4">
           <Scale className="h-8 w-8 text-primary flex-shrink-0" />
           {state !== "collapsed" && (
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <h1 className="text-xl font-bold text-sidebar-foreground truncate">LegalPro</h1>
               <p className="text-xs text-sidebar-foreground/60 truncate">Indian Law Management</p>
             </div>
@@ -73,18 +83,22 @@ export const Sidebar = () => {
                     <SidebarMenuButton 
                       asChild
                       className={cn(
+                        "cursor-pointer transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
                         isActive && "bg-sidebar-accent text-sidebar-accent-foreground"
                       )}
                     >
-                      <Link to={item.href} className="flex items-center gap-3">
-                        <item.icon className="h-4 w-4" />
-                        <span>{item.name}</span>
-                        {item.name === 'Dashboard' && unreadAlerts > 0 && (
-                          <Badge variant="destructive" className="ml-auto text-xs h-5 w-5 rounded-full p-0 flex items-center justify-center">
+                      <div 
+                        onClick={() => handleNavigation(item.href)} 
+                        className="flex items-center gap-3 w-full"
+                      >
+                        <item.icon className="h-4 w-4 flex-shrink-0" />
+                        <span className="truncate">{item.name}</span>
+                        {(item.name === 'Dashboard' || item.name === 'Notifications') && unreadAlerts > 0 && (
+                          <Badge variant="destructive" className="ml-auto text-xs h-5 w-5 rounded-full p-0 flex items-center justify-center flex-shrink-0">
                             {unreadAlerts}
                           </Badge>
                         )}
-                      </Link>
+                      </div>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 );
@@ -93,25 +107,6 @@ export const Sidebar = () => {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        <SidebarGroup>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild>
-                  <Link to="/dashboard" className="flex items-center gap-2">
-                    <Bell className="h-4 w-4" />
-                    <span>Notifications</span>
-                    {unreadAlerts > 0 && (
-                      <Badge variant="destructive" className="ml-auto text-xs h-5 w-5 rounded-full p-0 flex items-center justify-center">
-                        {unreadAlerts}
-                      </Badge>
-                    )}
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
       </SidebarContent>
     </SidebarComponent>
   );

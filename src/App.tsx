@@ -17,6 +17,7 @@ import Clients from "./pages/Clients";
 import LegalResearch from "./pages/LegalResearch";
 import Billing from "./pages/Billing";
 import Documents from "./pages/Documents";
+import Notifications from "./pages/Notifications";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
@@ -55,6 +56,7 @@ const App = () => (
                   <Route path="legal-research" element={<LegalResearch />} />
                   <Route path="billing" element={<Billing />} />
                   <Route path="documents" element={<Documents />} />
+                  <Route path="notifications" element={<Notifications />} />
                   <Route path="settings" element={<Settings />} />
                 </Route>
                 

@@ -79,9 +79,11 @@ const Settings = () => {
   };
 
   const handleSavePreferences = () => {
+    // In a real app, you'd save to backend/context
+    localStorage.setItem('user-preferences', JSON.stringify(preferences));
     toast({
       title: "Preferences Updated",
-      description: "Your system preferences have been saved.",
+      description: "Your system preferences have been saved and applied.",
     });
   };
 
@@ -102,9 +104,11 @@ const Settings = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold">Settings</h1>
-        <p className="text-muted-foreground">Manage your account and application preferences</p>
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="min-w-0 flex-1">
+          <h1 className="text-2xl md:text-3xl font-bold truncate">Settings</h1>
+          <p className="text-sm md:text-base text-muted-foreground truncate">Manage your account and application preferences</p>
+        </div>
       </div>
 
       {/* Profile Settings */}

@@ -187,18 +187,26 @@ const Documents = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Document Management</h1>
-          <p className="text-muted-foreground">Secure storage for all legal documents</p>
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="min-w-0 flex-1">
+          <h1 className="text-2xl md:text-3xl font-bold truncate">Document Management</h1>
+          <p className="text-sm md:text-base text-muted-foreground truncate">Secure storage for all legal documents</p>
         </div>
         
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={handleFileUpload}>
+        <div className="flex items-center gap-2 shrink-0">
+          <Button variant="outline" size="sm" onClick={handleFileUpload}>
             <Upload className="mr-2 h-4 w-4" />
             Upload Documents
           </Button>
-          <Button>
+          <Button size="sm" onClick={() => {
+            const folderName = prompt('Enter folder name:');
+            if (folderName) {
+              toast({
+                title: "Folder Created",
+                description: `Folder "${folderName}" has been created successfully.`,
+              });
+            }
+          }}>
             <FolderOpen className="mr-2 h-4 w-4" />
             Create Folder
           </Button>

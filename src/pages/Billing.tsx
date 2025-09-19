@@ -133,16 +133,16 @@ const Billing = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Billing & Time Tracking</h1>
-          <p className="text-muted-foreground">Manage invoices and track billable hours</p>
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="min-w-0 flex-1">
+          <h1 className="text-2xl md:text-3xl font-bold truncate">Billing & Time Tracking</h1>
+          <p className="text-sm md:text-base text-muted-foreground truncate">Manage invoices and track billable hours</p>
         </div>
         
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           <Dialog open={showTimeDialog} onOpenChange={setShowTimeDialog}>
             <DialogTrigger asChild>
-              <Button variant="outline" onClick={resetTimeForm}>
+              <Button variant="outline" size="sm" onClick={resetTimeForm}>
                 <Clock className="mr-2 h-4 w-4" />
                 Log Time
               </Button>
@@ -226,7 +226,7 @@ const Billing = () => {
             </DialogContent>
           </Dialog>
 
-          <Button onClick={() => {
+          <Button size="sm" onClick={() => {
             // Create a mock invoice
             const newInvoice = {
               id: Date.now().toString(),
@@ -355,11 +355,71 @@ const Billing = () => {
                   <div className="text-right">
                     <div className="font-bold text-lg">₹{invoice.amount.toLocaleString('en-IN')}</div>
                     <div className="flex gap-1">
-                      <Button size="sm" variant="outline">
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => {
+                          const email = prompt('Enter email address to send invoice:');
+                          if (email) {
+                            toast({
+                              title: "Invoice Sent",
+                              description: `Invoice ${invoice.invoiceNumber} has been sent to ${email}`,
+                            });
+                          }
+                        }}
+                      >
                         <Send className="mr-1 h-3 w-3" />
                         Send
                       </Button>
-                      <Button size="sm" variant="outline">
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => {
+                          // Create a mock invoice preview
+                          const newWindow = window.open('', '_blank');
+                          if (newWindow) {
+                            newWindow.document.write(`
+                              <!DOCTYPE html>
+                              <html>
+                              <head>
+                                <title>Invoice ${invoice.invoiceNumber}</title>
+                                <style>
+                                  body { font-family: Arial, sans-serif; margin: 40px; }
+                                  .header { text-align: center; margin-bottom: 40px; }
+                                  .invoice-details { margin-bottom: 30px; }
+                                  .client-details { margin-bottom: 30px; }
+                                  .amount { font-size: 24px; font-weight: bold; color: #2563eb; }
+                                  .footer { margin-top: 40px; text-align: center; color: #666; }
+                                </style>
+                              </head>
+                              <body>
+                                <div class="header">
+                                  <h1>LegalPro Invoice</h1>
+                                  <p>Professional Legal Services</p>
+                                </div>
+                                <div class="invoice-details">
+                                  <h2>Invoice: ${invoice.invoiceNumber}</h2>
+                                  <p>Date: ${invoice.createdDate.toLocaleDateString('en-IN')}</p>
+                                  <p>Due Date: ${invoice.dueDate.toLocaleDateString('en-IN')}</p>
+                                </div>
+                                <div class="client-details">
+                                  <h3>Bill To:</h3>
+                                  <p><strong>${invoice.clientName}</strong></p>
+                                </div>
+                                <div class="amount">
+                                  <p>Total Amount: ₹${invoice.amount.toLocaleString('en-IN')}</p>
+                                </div>
+                                <div class="footer">
+                                  <p>Thank you for your business!</p>
+                                  <p>Generated by LegalPro - Indian Law Management System</p>
+                                </div>
+                              </body>
+                              </html>
+                            `);
+                            newWindow.document.close();
+                          }
+                        }}
+                      >
                         View
                       </Button>
                     </div>
