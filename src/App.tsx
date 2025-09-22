@@ -17,7 +17,7 @@ import Clients from "./pages/Clients";
 import LegalResearch from "./pages/LegalResearch";
 import Billing from "./pages/Billing";
 import Documents from "./pages/Documents";
-import Notifications from "./pages/Notifications";
+import { Notifications } from "./pages/Notifications";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 

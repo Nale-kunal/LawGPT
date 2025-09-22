@@ -2,25 +2,31 @@ import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { useToast } from '@/hooks/use-toast';
+
 import { 
   Plus, 
   IndianRupee, 
   Clock, 
   FileText, 
   User, 
-  Calendar,
+  CalendarDays,
   Download,
   Send,
   Filter,
-  Search
+  Search,
+  Eye
 } from 'lucide-react';
 import { useLegalData, TimeEntry } from '@/contexts/LegalDataContext';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
-import { useToast } from '@/hooks/use-toast';
 
 interface Invoice {
   id: string;
@@ -39,6 +45,9 @@ const Billing = () => {
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [emailModalOpen, setEmailModalOpen] = useState(false);
+  const [invoicePreviewOpen, setInvoicePreviewOpen] = useState(false);
+  const [recipientEmail, setRecipientEmail] = useState('');
   const { toast } = useToast();
 
   // Mock invoices data - in real app, this would come from context
@@ -107,6 +116,85 @@ const Billing = () => {
     resetTimeForm();
   };
 
+  const handleSendInvoice = () => {
+    if (!recipientEmail) {
+      toast({
+        title: "Error",
+        description: "Please enter recipient email address",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Simulate sending email
+    toast({
+      title: "Invoice Sent",
+      description: `Invoice has been sent to ${recipientEmail}`,
+    });
+    setEmailModalOpen(false);
+    setRecipientEmail('');
+  };
+
+  const generateInvoiceHTML = () => {
+    const totalAmount = timeEntries.reduce((sum, entry) => sum + (entry.duration / 60 * 2000), 0);
+    
+    return `
+      <div style="max-width: 800px; margin: 0 auto; font-family: Arial, sans-serif; line-height: 1.6;">
+        <div style="background: #1a365d; color: white; padding: 2rem; text-align: center;">
+          <h1 style="margin: 0; font-size: 2rem;">LegalPro</h1>
+          <p style="margin: 0.5rem 0 0 0;">Indian Law Management</p>
+        </div>
+        
+        <div style="padding: 2rem;">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 2rem;">
+            <div>
+              <h2>Invoice</h2>
+              <p><strong>Invoice #:</strong> INV-${Date.now()}</p>
+              <p><strong>Date:</strong> ${new Date().toLocaleDateString('en-IN')}</p>
+            </div>
+            <div style="text-align: right;">
+              <h3>From:</h3>
+              <p>Law Firm Name<br>
+              Bar Council No: 12345<br>
+              New Delhi, India</p>
+            </div>
+          </div>
+          
+          <table style="width: 100%; border-collapse: collapse; margin-bottom: 2rem;">
+            <thead>
+              <tr style="background: #f8f9fa;">
+                <th style="border: 1px solid #ddd; padding: 12px; text-align: left;">Description</th>
+                <th style="border: 1px solid #ddd; padding: 12px; text-align: center;">Hours</th>
+                <th style="border: 1px solid #ddd; padding: 12px; text-align: right;">Rate</th>
+                <th style="border: 1px solid #ddd; padding: 12px; text-align: right;">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${timeEntries.map(entry => `
+                <tr>
+                  <td style="border: 1px solid #ddd; padding: 12px;">${entry.description}</td>
+                  <td style="border: 1px solid #ddd; padding: 12px; text-align: center;">${entry.duration / 60}</td>
+                  <td style="border: 1px solid #ddd; padding: 12px; text-align: right;">₹2,000</td>
+                  <td style="border: 1px solid #ddd; padding: 12px; text-align: right;">₹${((entry.duration / 60) * 2000).toLocaleString('en-IN')}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+            <tfoot>
+              <tr style="background: #f8f9fa; font-weight: bold;">
+                <td colspan="3" style="border: 1px solid #ddd; padding: 12px; text-align: right;">Total:</td>
+                <td style="border: 1px solid #ddd; padding: 12px; text-align: right;">₹${totalAmount.toLocaleString('en-IN')}</td>
+              </tr>
+            </tfoot>
+          </table>
+          
+          <div style="text-align: center; color: #666; font-size: 0.9rem;">
+            <p>Thank you for your business!</p>
+          </div>
+        </div>
+      </div>
+    `;
+  };
+
   // Calculate stats
   const totalBilled = invoices.reduce((sum, inv) => sum + inv.amount, 0);
   const paidAmount = invoices.filter(inv => inv.status === 'paid').reduce((sum, inv) => sum + inv.amount, 0);
@@ -131,18 +219,22 @@ const Billing = () => {
   });
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6 p-4 md:p-0">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div className="flex flex-col space-y-4 lg:space-y-0 lg:flex-row lg:items-center lg:justify-between">
         <div className="min-w-0 flex-1">
-          <h1 className="text-2xl md:text-3xl font-bold truncate">Billing & Time Tracking</h1>
-          <p className="text-sm md:text-base text-muted-foreground truncate">Manage invoices and track billable hours</p>
+          <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-foreground truncate">
+            Billing & Time Tracking
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Manage invoices and track billable hours
+          </p>
         </div>
         
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 w-full lg:w-auto">
           <Dialog open={showTimeDialog} onOpenChange={setShowTimeDialog}>
             <DialogTrigger asChild>
-              <Button variant="outline" size="sm" onClick={resetTimeForm}>
+              <Button variant="outline" onClick={resetTimeForm} className="w-full sm:w-auto">
                 <Clock className="mr-2 h-4 w-4" />
                 Log Time
               </Button>
@@ -226,7 +318,7 @@ const Billing = () => {
             </DialogContent>
           </Dialog>
 
-          <Button size="sm" onClick={() => {
+          <Button onClick={() => {
             // Create a mock invoice
             const newInvoice = {
               id: Date.now().toString(),
@@ -242,7 +334,7 @@ const Billing = () => {
               title: "Invoice Created",
               description: `Invoice ${newInvoice.invoiceNumber} has been created for ₹${newInvoice.amount.toLocaleString('en-IN')}`,
             });
-          }}>
+          }} className="w-full sm:w-auto">
             <Plus className="mr-2 h-4 w-4" />
             Create Invoice
           </Button>
@@ -250,14 +342,14 @@ const Billing = () => {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
         <Card className="shadow-card-custom">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Billed</CardTitle>
             <IndianRupee className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">₹{totalBilled.toLocaleString('en-IN')}</div>
+            <div className="text-xl md:text-2xl font-bold">₹{totalBilled.toLocaleString('en-IN')}</div>
             <p className="text-xs text-muted-foreground">All time invoices</p>
           </CardContent>
         </Card>
@@ -268,7 +360,7 @@ const Billing = () => {
             <IndianRupee className="h-4 w-4 text-success" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-success">₹{paidAmount.toLocaleString('en-IN')}</div>
+            <div className="text-xl md:text-2xl font-bold text-success">₹{paidAmount.toLocaleString('en-IN')}</div>
             <p className="text-xs text-muted-foreground">Received payments</p>
           </CardContent>
         </Card>
@@ -279,7 +371,7 @@ const Billing = () => {
             <IndianRupee className="h-4 w-4 text-warning" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-warning">₹{pendingAmount.toLocaleString('en-IN')}</div>
+            <div className="text-xl md:text-2xl font-bold text-warning">₹{pendingAmount.toLocaleString('en-IN')}</div>
             <p className="text-xs text-muted-foreground">Outstanding invoices</p>
           </CardContent>
         </Card>
@@ -290,31 +382,33 @@ const Billing = () => {
             <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{Math.round(totalHours / 60)}h</div>
+            <div className="text-xl md:text-2xl font-bold">{Math.round(totalHours / 60)}h</div>
             <p className="text-xs text-muted-foreground">{totalHours} minutes total</p>
           </CardContent>
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
         {/* Invoices */}
         <Card className="lg:col-span-2 shadow-elevated">
           <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="h-5 w-5 text-primary" />
-                Invoices
-              </CardTitle>
-              <Button variant="outline" size="sm">
+            <div className="flex flex-col space-y-4 lg:space-y-0 lg:flex-row lg:items-center lg:justify-between">
+              <div className="min-w-0 flex-1">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <FileText className="h-5 w-5 text-primary" />
+                  Invoices
+                </CardTitle>
+                <CardDescription>Manage client invoices and payments</CardDescription>
+              </div>
+              <Button variant="outline" size="sm" className="w-full lg:w-auto">
                 <Download className="mr-2 h-4 w-4" />
                 Export
               </Button>
             </div>
-            <CardDescription>Manage client invoices and payments</CardDescription>
           </CardHeader>
           <CardContent>
             {/* Search and Filter */}
-            <div className="flex gap-4 mb-4">
+            <div className="flex flex-col space-y-4 lg:space-y-0 lg:flex-row lg:gap-4 mb-4">
               <div className="relative flex-1">
                 <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -325,7 +419,7 @@ const Billing = () => {
                 />
               </div>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-40">
+                <SelectTrigger className="w-full lg:w-40">
                   <SelectValue placeholder="All Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -340,10 +434,10 @@ const Billing = () => {
 
             <div className="space-y-3">
               {filteredInvoices.map((invoice) => (
-                <div key={invoice.id} className="flex items-center justify-between p-4 border rounded-lg">
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="font-medium">{invoice.invoiceNumber}</span>
+                <div key={invoice.id} className="flex flex-col lg:flex-row lg:items-center lg:justify-between p-4 border rounded-lg space-y-4 lg:space-y-0 lg:gap-4">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-1">
+                      <span className="font-medium truncate">{invoice.invoiceNumber}</span>
                       <Badge variant={getStatusColor(invoice.status)}>
                         {invoice.status}
                       </Badge>
@@ -352,74 +446,15 @@ const Billing = () => {
                       {invoice.clientName} • Due: {invoice.dueDate.toLocaleDateString('en-IN')}
                     </div>
                   </div>
-                  <div className="text-right">
-                    <div className="font-bold text-lg">₹{invoice.amount.toLocaleString('en-IN')}</div>
-                    <div className="flex gap-1">
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        onClick={() => {
-                          const email = prompt('Enter email address to send invoice:');
-                          if (email) {
-                            toast({
-                              title: "Invoice Sent",
-                              description: `Invoice ${invoice.invoiceNumber} has been sent to ${email}`,
-                            });
-                          }
-                        }}
-                      >
+                  <div className="flex flex-col lg:flex-row lg:items-center lg:gap-4">
+                    <div className="font-bold text-lg mb-2 lg:mb-0">₹{invoice.amount.toLocaleString('en-IN')}</div>
+                    <div className="grid grid-cols-2 lg:flex gap-1">
+                      <Button size="sm" variant="outline" onClick={() => setEmailModalOpen(true)}>
                         <Send className="mr-1 h-3 w-3" />
                         Send
                       </Button>
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        onClick={() => {
-                          // Create a mock invoice preview
-                          const newWindow = window.open('', '_blank');
-                          if (newWindow) {
-                            newWindow.document.write(`
-                              <!DOCTYPE html>
-                              <html>
-                              <head>
-                                <title>Invoice ${invoice.invoiceNumber}</title>
-                                <style>
-                                  body { font-family: Arial, sans-serif; margin: 40px; }
-                                  .header { text-align: center; margin-bottom: 40px; }
-                                  .invoice-details { margin-bottom: 30px; }
-                                  .client-details { margin-bottom: 30px; }
-                                  .amount { font-size: 24px; font-weight: bold; color: #2563eb; }
-                                  .footer { margin-top: 40px; text-align: center; color: #666; }
-                                </style>
-                              </head>
-                              <body>
-                                <div class="header">
-                                  <h1>LegalPro Invoice</h1>
-                                  <p>Professional Legal Services</p>
-                                </div>
-                                <div class="invoice-details">
-                                  <h2>Invoice: ${invoice.invoiceNumber}</h2>
-                                  <p>Date: ${invoice.createdDate.toLocaleDateString('en-IN')}</p>
-                                  <p>Due Date: ${invoice.dueDate.toLocaleDateString('en-IN')}</p>
-                                </div>
-                                <div class="client-details">
-                                  <h3>Bill To:</h3>
-                                  <p><strong>${invoice.clientName}</strong></p>
-                                </div>
-                                <div class="amount">
-                                  <p>Total Amount: ₹${invoice.amount.toLocaleString('en-IN')}</p>
-                                </div>
-                                <div class="footer">
-                                  <p>Thank you for your business!</p>
-                                  <p>Generated by LegalPro - Indian Law Management System</p>
-                                </div>
-                              </body>
-                              </html>
-                            `);
-                            newWindow.document.close();
-                          }
-                        }}
-                      >
+                      <Button size="sm" variant="outline" onClick={() => setInvoicePreviewOpen(true)}>
+                        <Eye className="mr-1 h-3 w-3" />
                         View
                       </Button>
                     </div>
@@ -469,7 +504,7 @@ const Billing = () => {
                       <span className="text-muted-foreground">
                         {Math.round(entry.duration / 60 * 10) / 10}h @ ₹{entry.hourlyRate}/hr
                       </span>
-                      <span className="font-medium">₹{amount.toLocaleString('en-IN')}</span>
+                      <span className="font-medium">₹{((entry.duration / 60) * entry.hourlyRate).toLocaleString('en-IN')}</span>
                     </div>
                     <div className="text-xs text-muted-foreground">
                       {entry.date.toLocaleDateString('en-IN')}
@@ -505,6 +540,88 @@ const Billing = () => {
       </div>
 
       {/* Payment Status */}
+      <Card className="shadow-card-custom">
+        <CardHeader>
+          <CardTitle className="text-lg">Quick Actions</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Send Invoice</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Button className="w-full" onClick={() => setEmailModalOpen(true)}>
+                  <Send className="h-4 w-4 mr-2" />
+                  Send Invoice
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">View Invoice</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Button variant="outline" className="w-full" onClick={() => setInvoicePreviewOpen(true)}>
+                  <Eye className="h-4 w-4 mr-2" />
+                  View Invoice
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Email Modal */}
+      <Dialog open={emailModalOpen} onOpenChange={setEmailModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Send Invoice</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="email">Recipient Email</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="client@example.com"
+                value={recipientEmail}
+                onChange={(e) => setRecipientEmail(e.target.value)}
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={handleSendInvoice} className="flex-1">
+                <Send className="h-4 w-4 mr-2" />
+                Send Invoice
+              </Button>
+              <Button variant="outline" onClick={() => setEmailModalOpen(false)}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Invoice Preview Modal */}
+      <Dialog open={invoicePreviewOpen} onOpenChange={setInvoicePreviewOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Invoice Preview</DialogTitle>
+          </DialogHeader>
+          <div dangerouslySetInnerHTML={{ __html: generateInvoiceHTML() }} />
+          <div className="flex gap-2 mt-4">
+            <Button onClick={() => window.print()}>
+              Print Invoice
+            </Button>
+            <Button variant="outline" onClick={() => setInvoicePreviewOpen(false)}>
+              Close
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Payment Overview */}
       <Card className="shadow-card-custom">
         <CardHeader>
           <CardTitle>Payment Overview</CardTitle>

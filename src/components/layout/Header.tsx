@@ -26,15 +26,20 @@ export const Header = () => {
   };
 
   return (
-    <header className="sticky top-0 z-40 flex items-center justify-between px-3 md:px-6 py-3 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60 border-b border-border">
-      <div className="flex items-center gap-3 md:gap-4">
-        <SidebarTrigger className="md:hidden shrink-0" />
-        <div className="flex items-center gap-2 md:gap-3">
-          <Scale className="h-6 w-6 md:h-7 md:w-7 text-primary shrink-0" />
-          <div className="flex flex-col">
-            <h1 className="text-base md:text-lg font-bold text-foreground truncate">LegalPro</h1>
-            <p className="text-xs text-muted-foreground hidden sm:block truncate">Welcome back, {user?.name}</p>
+    <header className="flex items-center justify-between px-3 md:px-6 py-4 bg-card border-b border-border">
+      <div className="flex items-center gap-2 md:gap-4">
+        <SidebarTrigger />
+        <div className="flex items-center gap-2">
+          <Scale className="h-6 w-6 md:h-8 md:w-8 text-primary flex-shrink-0" />
+          <div className="hidden sm:block">
+            <h1 className="text-lg md:text-xl font-bold text-foreground">LegalPro</h1>
+            <p className="text-xs text-muted-foreground hidden md:block">Indian Law Management</p>
           </div>
+        </div>
+        <div className="hidden lg:block ml-4">
+          <h2 className="text-sm md:text-base font-medium text-foreground truncate">
+            Welcome back, {user?.name}
+          </h2>
         </div>
       </div>
 
@@ -58,7 +63,7 @@ export const Header = () => {
           variant="ghost" 
           size="sm" 
           className="relative h-8 w-8 p-0"
-          onClick={() => window.location.href = '/dashboard/notifications'}
+          onClick={() => window.location.href = '/dashboard'}
         >
           <Bell className="h-4 w-4" />
           {unreadAlerts > 0 && (

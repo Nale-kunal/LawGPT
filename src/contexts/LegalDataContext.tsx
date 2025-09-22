@@ -38,10 +38,12 @@ export interface Client {
 
 export interface Alert {
   id: string;
-  caseId: string;
-  type: 'hearing' | 'deadline' | 'payment' | 'document';
+  caseId?: string;
+  caseNumber?: string;
+  type: 'hearing' | 'deadline' | 'payment' | 'document' | 'case';
   message: string;
   alertTime: Date;
+  timestamp: Date;
   isRead: boolean;
   createdAt: Date;
 }
@@ -84,6 +86,7 @@ interface LegalDataContextType {
   alerts: Alert[];
   addAlert: (alertData: Omit<Alert, 'id' | 'createdAt'>) => void;
   markAlertAsRead: (alertId: string) => void;
+  deleteAlert: (alertId: string) => void;
   
   // Legal Sections
   legalSections: LegalSection[];
@@ -221,6 +224,10 @@ export const LegalDataProvider: React.FC<LegalDataProviderProps> = ({ children }
     ));
   };
 
+  const deleteAlert = (alertId: string) => {
+    setAlerts(prev => prev.filter(a => a.id !== alertId));
+  };
+
   // Legal research
   const searchLegalSections = (query: string): LegalSection[] => {
     if (!query) return legalSections;
@@ -257,6 +264,7 @@ export const LegalDataProvider: React.FC<LegalDataProviderProps> = ({ children }
     alerts,
     addAlert,
     markAlertAsRead,
+    deleteAlert,
     legalSections,
     searchLegalSections,
     timeEntries,

@@ -3,65 +3,60 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
 import { 
   User, 
   Bell, 
   Shield, 
-  Palette, 
-  Database,
-  Mail,
-  Phone,
-  CreditCard,
-  Download,
-  Upload
+  Smartphone, 
+  Mail, 
+  Phone, 
+  MapPin, 
+  Building,
+  Save,
+  Edit3,
+  Trash2,
+  Plus
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 
 const Settings = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   
-  // Profile settings
+  // Form states
   const [profileData, setProfileData] = useState({
     name: user?.name || '',
     email: user?.email || '',
-    phone: '+91 98765 43210',
-    barNumber: user?.barNumber || '',
-    firm: user?.firm || '',
+    phone: '',
     address: '',
-    bio: ''
+    barNumber: user?.barNumber || '',
+    lawFirm: '',
+    specialization: ''
   });
 
-  // Notification settings
-  const [notifications, setNotifications] = useState({
-    emailAlerts: true,
-    smsAlerts: true,
-    pushNotifications: true,
+  const [notificationSettings, setNotificationSettings] = useState({
+    emailNotifications: true,
+    pushNotifications: false,
     hearingReminders: true,
     clientUpdates: true,
-    billingAlerts: false,
-    weeklyReports: true
+    caseDeadlines: true,
+    paymentReminders: false
   });
 
-  // System preferences
-  const [preferences, setPreferences] = useState({
-    theme: 'light',
-    language: 'en-IN',
-    timezone: 'Asia/Kolkata',
+  const [systemPreferences, setSystemPreferences] = useState({
     dateFormat: 'DD/MM/YYYY',
-    currency: 'INR'
-  });
-
-  // Security settings
-  const [security, setSecurity] = useState({
-    twoFactorEnabled: false,
-    sessionTimeout: '30',
-    loginNotifications: true
+    timeFormat: '24h',
+    currency: 'INR',
+    language: 'en',
+    theme: 'light',
+    timezone: 'Asia/Kolkata'
   });
 
   const handleSaveProfile = () => {
@@ -78,432 +73,458 @@ const Settings = () => {
     });
   };
 
-  const handleSavePreferences = () => {
-    // In a real app, you'd save to backend/context
-    localStorage.setItem('user-preferences', JSON.stringify(preferences));
+  const handleSaveSystem = () => {
     toast({
-      title: "Preferences Updated",
-      description: "Your system preferences have been saved and applied.",
-    });
-  };
-
-  const handleExportData = () => {
-    toast({
-      title: "Export Started",
-      description: "Your data export is being prepared. You'll receive a download link shortly.",
-    });
-  };
-
-  const handleImportData = () => {
-    toast({
-      title: "Import Started",
-      description: "Please select the backup file to import your data.",
+      title: "System Preferences Updated", 
+      description: "Your system preferences have been applied.",
     });
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6 p-4 md:p-0">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div className="flex flex-col space-y-4 md:space-y-0 md:flex-row md:items-center md:justify-between">
         <div className="min-w-0 flex-1">
-          <h1 className="text-2xl md:text-3xl font-bold truncate">Settings</h1>
-          <p className="text-sm md:text-base text-muted-foreground truncate">Manage your account and application preferences</p>
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground truncate">
+            Settings
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Manage your account and application preferences
+          </p>
         </div>
+        <Badge variant="outline" className="w-fit">
+          Last updated: {new Date().toLocaleDateString('en-IN')}
+        </Badge>
       </div>
 
-      {/* Profile Settings */}
-      <Card className="shadow-card-custom">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <User className="h-5 w-5 text-primary" />
-            Profile Information
-          </CardTitle>
-          <CardDescription>
-            Update your personal and professional details
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="name">Full Name</Label>
-              <Input
-                id="name"
-                value={profileData.name}
-                onChange={(e) => setProfileData(prev => ({ ...prev, name: e.target.value }))}
-                placeholder="Your full name"
-              />
-            </div>
-            <div>
-              <Label htmlFor="email">Email Address</Label>
-              <Input
-                id="email"
-                type="email"
-                value={profileData.email}
-                onChange={(e) => setProfileData(prev => ({ ...prev, email: e.target.value }))}
-                placeholder="your@email.com"
-              />
-            </div>
-          </div>
+      <Tabs defaultValue="profile" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="profile" className="flex items-center gap-2">
+            <User className="h-4 w-4" />
+            <span className="hidden sm:inline">Profile</span>
+          </TabsTrigger>
+          <TabsTrigger value="notifications" className="flex items-center gap-2">
+            <Bell className="h-4 w-4" />
+            <span className="hidden sm:inline">Notifications</span>
+          </TabsTrigger>
+          <TabsTrigger value="system" className="flex items-center gap-2">
+            <Shield className="h-4 w-4" />
+            <span className="hidden sm:inline">System</span>
+          </TabsTrigger>
+        </TabsList>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="phone">Phone Number</Label>
-              <Input
-                id="phone"
-                value={profileData.phone}
-                onChange={(e) => setProfileData(prev => ({ ...prev, phone: e.target.value }))}
-                placeholder="+91 98765 43210"
-              />
-            </div>
-            <div>
-              <Label htmlFor="barNumber">Bar Council Number</Label>
-              <Input
-                id="barNumber"
-                value={profileData.barNumber}
-                onChange={(e) => setProfileData(prev => ({ ...prev, barNumber: e.target.value }))}
-                placeholder="DL/2018/12345"
-              />
-            </div>
-          </div>
-
-          <div>
-            <Label htmlFor="firm">Law Firm/Organization</Label>
-            <Input
-              id="firm"
-              value={profileData.firm}
-              onChange={(e) => setProfileData(prev => ({ ...prev, firm: e.target.value }))}
-              placeholder="Your law firm name"
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="address">Office Address</Label>
-            <Textarea
-              id="address"
-              value={profileData.address}
-              onChange={(e) => setProfileData(prev => ({ ...prev, address: e.target.value }))}
-              placeholder="Complete office address..."
-              rows={3}
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="bio">Professional Bio</Label>
-            <Textarea
-              id="bio"
-              value={profileData.bio}
-              onChange={(e) => setProfileData(prev => ({ ...prev, bio: e.target.value }))}
-              placeholder="Brief description of your legal expertise..."
-              rows={3}
-            />
-          </div>
-
-          <Button onClick={handleSaveProfile}>
-            Save Profile Changes
-          </Button>
-        </CardContent>
-      </Card>
-
-      {/* Notification Settings */}
-      <Card className="shadow-card-custom">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Bell className="h-5 w-5 text-primary" />
-            Notification Preferences
-          </CardTitle>
-          <CardDescription>
-            Configure how you want to receive alerts and updates
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <Label htmlFor="emailAlerts" className="text-base">Email Alerts</Label>
-                <p className="text-sm text-muted-foreground">Receive notifications via email</p>
+        {/* Profile Settings */}
+        <TabsContent value="profile" className="space-y-6">
+          <Card className="shadow-card-custom">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <User className="h-5 w-5 text-primary" />
+                Personal Information
+              </CardTitle>
+              <CardDescription>
+                Update your personal and professional details
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="name">Full Name</Label>
+                  <Input
+                    id="name"
+                    value={profileData.name}
+                    onChange={(e) => setProfileData(prev => ({ ...prev, name: e.target.value }))}
+                    placeholder="Enter your full name"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="email">Email Address</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={profileData.email}
+                    onChange={(e) => setProfileData(prev => ({ ...prev, email: e.target.value }))}
+                    placeholder="your@email.com"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="phone">Phone Number</Label>
+                  <Input
+                    id="phone"
+                    value={profileData.phone}
+                    onChange={(e) => setProfileData(prev => ({ ...prev, phone: e.target.value }))}
+                    placeholder="+91 98765 43210"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="barNumber">Bar Council Number</Label>
+                  <Input
+                    id="barNumber"
+                    value={profileData.barNumber}
+                    onChange={(e) => setProfileData(prev => ({ ...prev, barNumber: e.target.value }))}
+                    placeholder="Enter your bar number"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="lawFirm">Law Firm</Label>
+                  <Input
+                    id="lawFirm"
+                    value={profileData.lawFirm}
+                    onChange={(e) => setProfileData(prev => ({ ...prev, lawFirm: e.target.value }))}
+                    placeholder="Your law firm name"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="specialization">Specialization</Label>
+                  <Select value={profileData.specialization} onValueChange={(value) => 
+                    setProfileData(prev => ({ ...prev, specialization: value }))
+                  }>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select specialization" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="criminal">Criminal Law</SelectItem>
+                      <SelectItem value="civil">Civil Law</SelectItem>
+                      <SelectItem value="corporate">Corporate Law</SelectItem>
+                      <SelectItem value="family">Family Law</SelectItem>
+                      <SelectItem value="property">Property Law</SelectItem>
+                      <SelectItem value="tax">Tax Law</SelectItem>
+                      <SelectItem value="labor">Labor Law</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-              <Switch
-                id="emailAlerts"
-                checked={notifications.emailAlerts}
-                onCheckedChange={(checked) => setNotifications(prev => ({ ...prev, emailAlerts: checked }))}
-              />
-            </div>
-
-            <div className="flex items-center justify-between">
+              
               <div>
-                <Label htmlFor="smsAlerts" className="text-base">SMS Alerts</Label>
-                <p className="text-sm text-muted-foreground">Receive important notifications via SMS</p>
+                <Label htmlFor="address">Address</Label>
+                <Textarea
+                  id="address"
+                  value={profileData.address}
+                  onChange={(e) => setProfileData(prev => ({ ...prev, address: e.target.value }))}
+                  placeholder="Enter your complete address"
+                  rows={3}
+                />
               </div>
-              <Switch
-                id="smsAlerts"
-                checked={notifications.smsAlerts}
-                onCheckedChange={(checked) => setNotifications(prev => ({ ...prev, smsAlerts: checked }))}
-              />
-            </div>
 
-            <div className="flex items-center justify-between">
-              <div>
-                <Label htmlFor="pushNotifications" className="text-base">Push Notifications</Label>
-                <p className="text-sm text-muted-foreground">Browser push notifications</p>
+              <div className="flex justify-end">
+                <Button onClick={handleSaveProfile}>
+                  <Save className="mr-2 h-4 w-4" />
+                  Save Profile
+                </Button>
               </div>
-              <Switch
-                id="pushNotifications"
-                checked={notifications.pushNotifications}
-                onCheckedChange={(checked) => setNotifications(prev => ({ ...prev, pushNotifications: checked }))}
-              />
-            </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-            <Separator />
+        {/* Notification Settings */}
+        <TabsContent value="notifications" className="space-y-6">
+          <Card className="shadow-card-custom">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Bell className="h-5 w-5 text-primary" />
+                Notification Preferences
+              </CardTitle>
+              <CardDescription>
+                Choose how you want to receive notifications
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <div className="text-sm font-medium">Email Notifications</div>
+                    <div className="text-xs text-muted-foreground">
+                      Receive notifications via email
+                    </div>
+                  </div>
+                  <Switch
+                    checked={notificationSettings.emailNotifications}
+                    onCheckedChange={(checked) => 
+                      setNotificationSettings(prev => ({ ...prev, emailNotifications: checked }))
+                    }
+                  />
+                </div>
 
-            <div className="flex items-center justify-between">
-              <div>
-                <Label htmlFor="hearingReminders" className="text-base">Hearing Reminders</Label>
-                <p className="text-sm text-muted-foreground">Automatic reminders for court hearings</p>
+                <Separator />
+
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <div className="text-sm font-medium">Push Notifications</div>
+                    <div className="text-xs text-muted-foreground">
+                      Browser push notifications
+                    </div>
+                  </div>
+                  <Switch
+                    checked={notificationSettings.pushNotifications}
+                    onCheckedChange={(checked) => 
+                      setNotificationSettings(prev => ({ ...prev, pushNotifications: checked }))
+                    }
+                  />
+                </div>
+
+                <Separator />
+
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <div className="text-sm font-medium">Hearing Reminders</div>
+                    <div className="text-xs text-muted-foreground">
+                      Court hearing reminders
+                    </div>
+                  </div>
+                  <Switch
+                    checked={notificationSettings.hearingReminders}
+                    onCheckedChange={(checked) => 
+                      setNotificationSettings(prev => ({ ...prev, hearingReminders: checked }))
+                    }
+                  />
+                </div>
+
+                <Separator />
+
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <div className="text-sm font-medium">Client Updates</div>
+                    <div className="text-xs text-muted-foreground">
+                      New client communications
+                    </div>
+                  </div>
+                  <Switch
+                    checked={notificationSettings.clientUpdates}
+                    onCheckedChange={(checked) => 
+                      setNotificationSettings(prev => ({ ...prev, clientUpdates: checked }))
+                    }
+                  />
+                </div>
+
+                <Separator />
+
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <div className="text-sm font-medium">Case Deadlines</div>
+                    <div className="text-xs text-muted-foreground">
+                      Important case deadline alerts
+                    </div>
+                  </div>
+                  <Switch
+                    checked={notificationSettings.caseDeadlines}
+                    onCheckedChange={(checked) => 
+                      setNotificationSettings(prev => ({ ...prev, caseDeadlines: checked }))
+                    }
+                  />
+                </div>
+
+                <Separator />
+
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <div className="text-sm font-medium">Payment Reminders</div>
+                    <div className="text-xs text-muted-foreground">
+                      Invoice and payment notifications
+                    </div>
+                  </div>
+                  <Switch
+                    checked={notificationSettings.paymentReminders}
+                    onCheckedChange={(checked) => 
+                      setNotificationSettings(prev => ({ ...prev, paymentReminders: checked }))
+                    }
+                  />
+                </div>
               </div>
-              <Switch
-                id="hearingReminders"
-                checked={notifications.hearingReminders}
-                onCheckedChange={(checked) => setNotifications(prev => ({ ...prev, hearingReminders: checked }))}
-              />
-            </div>
 
-            <div className="flex items-center justify-between">
-              <div>
-                <Label htmlFor="clientUpdates" className="text-base">Client Updates</Label>
-                <p className="text-sm text-muted-foreground">Notifications about client case updates</p>
+              <div className="flex justify-end">
+                <Button onClick={handleSaveNotifications}>
+                  <Save className="mr-2 h-4 w-4" />
+                  Save Preferences
+                </Button>
               </div>
-              <Switch
-                id="clientUpdates"
-                checked={notifications.clientUpdates}
-                onCheckedChange={(checked) => setNotifications(prev => ({ ...prev, clientUpdates: checked }))}
-              />
-            </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-            <div className="flex items-center justify-between">
-              <div>
-                <Label htmlFor="billingAlerts" className="text-base">Billing Alerts</Label>
-                <p className="text-sm text-muted-foreground">Payment and invoice notifications</p>
+        {/* System Settings */}
+        <TabsContent value="system" className="space-y-6">
+          <Card className="shadow-card-custom">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Shield className="h-5 w-5 text-primary" />
+                System Preferences
+              </CardTitle>
+              <CardDescription>
+                Configure application settings and preferences
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="dateFormat">Date Format</Label>
+                  <Select value={systemPreferences.dateFormat} onValueChange={(value) => 
+                    setSystemPreferences(prev => ({ ...prev, dateFormat: value }))
+                  }>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="DD/MM/YYYY">DD/MM/YYYY</SelectItem>
+                      <SelectItem value="MM/DD/YYYY">MM/DD/YYYY</SelectItem>
+                      <SelectItem value="YYYY-MM-DD">YYYY-MM-DD</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="timeFormat">Time Format</Label>
+                  <Select value={systemPreferences.timeFormat} onValueChange={(value) => 
+                    setSystemPreferences(prev => ({ ...prev, timeFormat: value }))
+                  }>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="12h">12 Hour</SelectItem>
+                      <SelectItem value="24h">24 Hour</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="currency">Currency</Label>
+                  <Select value={systemPreferences.currency} onValueChange={(value) => 
+                    setSystemPreferences(prev => ({ ...prev, currency: value }))
+                  }>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="INR">Indian Rupee (₹)</SelectItem>
+                      <SelectItem value="USD">US Dollar ($)</SelectItem>
+                      <SelectItem value="EUR">Euro (€)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="language">Language</Label>
+                  <Select value={systemPreferences.language} onValueChange={(value) => 
+                    setSystemPreferences(prev => ({ ...prev, language: value }))
+                  }>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="en">English</SelectItem>
+                      <SelectItem value="hi">हिंदी</SelectItem>
+                      <SelectItem value="te">తెలుగు</SelectItem>
+                      <SelectItem value="ta">தமிழ்</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="theme">Theme</Label>
+                  <Select value={systemPreferences.theme} onValueChange={(value) => 
+                    setSystemPreferences(prev => ({ ...prev, theme: value }))
+                  }>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="light">Light</SelectItem>
+                      <SelectItem value="dark">Dark</SelectItem>
+                      <SelectItem value="system">System</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="timezone">Timezone</Label>
+                  <Select value={systemPreferences.timezone} onValueChange={(value) => 
+                    setSystemPreferences(prev => ({ ...prev, timezone: value }))
+                  }>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Asia/Kolkata">India Standard Time</SelectItem>
+                      <SelectItem value="Asia/Dubai">UAE Time</SelectItem>
+                      <SelectItem value="America/New_York">Eastern Time</SelectItem>
+                      <SelectItem value="Europe/London">GMT</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-              <Switch
-                id="billingAlerts"
-                checked={notifications.billingAlerts}
-                onCheckedChange={(checked) => setNotifications(prev => ({ ...prev, billingAlerts: checked }))}
-              />
-            </div>
 
-            <div className="flex items-center justify-between">
-              <div>
-                <Label htmlFor="weeklyReports" className="text-base">Weekly Reports</Label>
-                <p className="text-sm text-muted-foreground">Weekly summary of activities</p>
+              <div className="flex justify-end">
+                <Button onClick={handleSaveSystem}>
+                  <Save className="mr-2 h-4 w-4" />
+                  Apply Settings
+                </Button>
               </div>
-              <Switch
-                id="weeklyReports"
-                checked={notifications.weeklyReports}
-                onCheckedChange={(checked) => setNotifications(prev => ({ ...prev, weeklyReports: checked }))}
-              />
-            </div>
-          </div>
+            </CardContent>
+          </Card>
 
-          <Button onClick={handleSaveNotifications}>
-            Save Notification Settings
-          </Button>
-        </CardContent>
-      </Card>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* System Preferences */}
-        <Card className="shadow-card-custom">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Palette className="h-5 w-5 text-primary" />
-              System Preferences
-            </CardTitle>
-            <CardDescription>
-              Customize your application experience
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <Label htmlFor="theme">Theme</Label>
-              <Select value={preferences.theme} onValueChange={(value) => setPreferences(prev => ({ ...prev, theme: value }))}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="light">Light</SelectItem>
-                  <SelectItem value="dark">Dark</SelectItem>
-                  <SelectItem value="system">System</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label htmlFor="language">Language</Label>
-              <Select value={preferences.language} onValueChange={(value) => setPreferences(prev => ({ ...prev, language: value }))}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="en-IN">English (India)</SelectItem>
-                  <SelectItem value="hi-IN">हिन्दी</SelectItem>
-                  <SelectItem value="bn-IN">বাংলা</SelectItem>
-                  <SelectItem value="ta-IN">தமிழ்</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label htmlFor="timezone">Timezone</Label>
-              <Select value={preferences.timezone} onValueChange={(value) => setPreferences(prev => ({ ...prev, timezone: value }))}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Asia/Kolkata">Asia/Kolkata (IST)</SelectItem>
-                  <SelectItem value="Asia/Mumbai">Asia/Mumbai (IST)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label htmlFor="dateFormat">Date Format</Label>
-              <Select value={preferences.dateFormat} onValueChange={(value) => setPreferences(prev => ({ ...prev, dateFormat: value }))}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="DD/MM/YYYY">DD/MM/YYYY</SelectItem>
-                  <SelectItem value="MM/DD/YYYY">MM/DD/YYYY</SelectItem>
-                  <SelectItem value="YYYY-MM-DD">YYYY-MM-DD</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label htmlFor="currency">Currency</Label>
-              <Select value={preferences.currency} onValueChange={(value) => setPreferences(prev => ({ ...prev, currency: value }))}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="INR">₹ Indian Rupee (INR)</SelectItem>
-                  <SelectItem value="USD">$ US Dollar (USD)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <Button onClick={handleSavePreferences}>
-              Save Preferences
-            </Button>
-          </CardContent>
-        </Card>
-
-        {/* Security Settings */}
-        <Card className="shadow-card-custom">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Shield className="h-5 w-5 text-primary" />
-              Security & Privacy
-            </CardTitle>
-            <CardDescription>
-              Manage your account security settings
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <Label htmlFor="twoFactor" className="text-base">Two-Factor Authentication</Label>
-                <p className="text-sm text-muted-foreground">Add an extra layer of security</p>
+          {/* Security Settings */}
+          <Card className="shadow-card-custom">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Shield className="h-5 w-5 text-primary" />
+                Security Settings
+              </CardTitle>
+              <CardDescription>
+                Manage your account security and privacy
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between p-4 border rounded-lg">
+                <div className="space-y-0.5">
+                  <div className="text-sm font-medium">Two-Factor Authentication</div>
+                  <div className="text-xs text-muted-foreground">
+                    Add an extra layer of security to your account
+                  </div>
+                </div>
+                <Button variant="outline" size="sm">
+                  Enable 2FA
+                </Button>
               </div>
-              <Switch
-                id="twoFactor"
-                checked={security.twoFactorEnabled}
-                onCheckedChange={(checked) => setSecurity(prev => ({ ...prev, twoFactorEnabled: checked }))}
-              />
-            </div>
 
-            <div>
-              <Label htmlFor="sessionTimeout">Session Timeout (minutes)</Label>
-              <Select value={security.sessionTimeout} onValueChange={(value) => setSecurity(prev => ({ ...prev, sessionTimeout: value }))}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="15">15 minutes</SelectItem>
-                  <SelectItem value="30">30 minutes</SelectItem>
-                  <SelectItem value="60">1 hour</SelectItem>
-                  <SelectItem value="120">2 hours</SelectItem>
-                  <SelectItem value="480">8 hours</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div>
-                <Label htmlFor="loginNotifications" className="text-base">Login Notifications</Label>
-                <p className="text-sm text-muted-foreground">Get notified of account logins</p>
+              <div className="flex items-center justify-between p-4 border rounded-lg">
+                <div className="space-y-0.5">
+                  <div className="text-sm font-medium">Change Password</div>
+                  <div className="text-xs text-muted-foreground">
+                    Update your account password
+                  </div>
+                </div>
+                <Button variant="outline" size="sm">
+                  Change Password
+                </Button>
               </div>
-              <Switch
-                id="loginNotifications"
-                checked={security.loginNotifications}
-                onCheckedChange={(checked) => setSecurity(prev => ({ ...prev, loginNotifications: checked }))}
-              />
-            </div>
 
-            <Separator />
+              <div className="flex items-center justify-between p-4 border rounded-lg">
+                <div className="space-y-0.5">
+                  <div className="text-sm font-medium">Active Sessions</div>
+                  <div className="text-xs text-muted-foreground">
+                    Manage devices logged into your account
+                  </div>
+                </div>
+                <Button variant="outline" size="sm">
+                  View Sessions
+                </Button>
+              </div>
 
-            <div className="space-y-2">
-              <Button variant="outline" className="w-full">
-                Change Password
-              </Button>
-              <Button variant="outline" className="w-full">
-                Download Account Data
-              </Button>
-              <Button variant="destructive" className="w-full">
-                Delete Account
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Data Management */}
-      <Card className="shadow-card-custom">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Database className="h-5 w-5 text-primary" />
-            Data Management
-          </CardTitle>
-          <CardDescription>
-            Backup and restore your legal data
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <h4 className="font-medium">Export Data</h4>
-              <p className="text-sm text-muted-foreground">
-                Download a complete backup of your cases, clients, and documents
-              </p>
-              <Button onClick={handleExportData} className="w-full">
-                <Download className="mr-2 h-4 w-4" />
-                Export All Data
-              </Button>
-            </div>
-
-            <div className="space-y-2">
-              <h4 className="font-medium">Import Data</h4>
-              <p className="text-sm text-muted-foreground">
-                Restore your data from a previous backup
-              </p>
-              <Button onClick={handleImportData} variant="outline" className="w-full">
-                <Upload className="mr-2 h-4 w-4" />
-                Import Backup
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+              <div className="flex items-center justify-between p-4 border rounded-lg border-destructive/20">
+                <div className="space-y-0.5">
+                  <div className="text-sm font-medium text-destructive">Delete Account</div>
+                  <div className="text-xs text-muted-foreground">
+                    Permanently delete your account and all data
+                  </div>
+                </div>
+                <Button variant="destructive" size="sm">
+                  Delete Account
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

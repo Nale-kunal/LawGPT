@@ -1,4 +1,4 @@
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { 
   LayoutDashboard, 
@@ -35,35 +35,32 @@ const navigation = [
   { name: 'Legal Research', href: '/dashboard/legal-research', icon: BookOpen },
   { name: 'Billing', href: '/dashboard/billing', icon: Receipt },
   { name: 'Documents', href: '/dashboard/documents', icon: FolderOpen },
-  { name: 'Notifications', href: '/dashboard/notifications', icon: Bell },
   { name: 'Settings', href: '/dashboard/settings', icon: Settings },
 ];
 
 export const Sidebar = () => {
   const location = useLocation();
-  const navigate = useNavigate();
   const { alerts } = useLegalData();
-  const { state, setOpen } = useSidebar();
+  const { state, setOpenMobile } = useSidebar();
   const unreadAlerts = alerts.filter(alert => !alert.isRead).length;
 
-  const handleNavigation = (href: string) => {
-    navigate(href);
-    // Auto-collapse sidebar on mobile after navigation
+  const handleNavClick = () => {
+    // Auto-close sidebar on mobile after navigation
     if (window.innerWidth < 768) {
-      setOpen(false);
+      setOpenMobile(false);
     }
   };
 
   return (
     <SidebarComponent 
-      className="border-sidebar-border hover:w-64 transition-all duration-300"
+      className="border-sidebar-border group-data-[collapsible=icon]:hover:w-64 transition-all duration-300"
       collapsible="icon"
     >
       <SidebarHeader className="border-b border-sidebar-border">
-        <div className="flex items-center gap-3 px-4 py-4">
+        <div className="flex items-center gap-2 px-4 py-3">
           <Scale className="h-8 w-8 text-primary flex-shrink-0" />
           {state !== "collapsed" && (
-            <div className="min-w-0 flex-1">
+            <div className="min-w-0">
               <h1 className="text-xl font-bold text-sidebar-foreground truncate">LegalPro</h1>
               <p className="text-xs text-sidebar-foreground/60 truncate">Indian Law Management</p>
             </div>
@@ -83,22 +80,18 @@ export const Sidebar = () => {
                     <SidebarMenuButton 
                       asChild
                       className={cn(
-                        "cursor-pointer transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
                         isActive && "bg-sidebar-accent text-sidebar-accent-foreground"
                       )}
                     >
-                      <div 
-                        onClick={() => handleNavigation(item.href)} 
-                        className="flex items-center gap-3 w-full"
-                      >
-                        <item.icon className="h-4 w-4 flex-shrink-0" />
-                        <span className="truncate">{item.name}</span>
-                        {(item.name === 'Dashboard' || item.name === 'Notifications') && unreadAlerts > 0 && (
-                          <Badge variant="destructive" className="ml-auto text-xs h-5 w-5 rounded-full p-0 flex items-center justify-center flex-shrink-0">
+                      <Link to={item.href} className="flex items-center gap-3" onClick={handleNavClick}>
+                        <item.icon className="h-4 w-4" />
+                        <span>{item.name}</span>
+                        {item.name === 'Dashboard' && unreadAlerts > 0 && (
+                          <Badge variant="destructive" className="ml-auto text-xs h-5 w-5 rounded-full p-0 flex items-center justify-center">
                             {unreadAlerts}
                           </Badge>
                         )}
-                      </div>
+                      </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 );
@@ -107,6 +100,25 @@ export const Sidebar = () => {
           </SidebarGroupContent>
         </SidebarGroup>
 
+        <SidebarGroup>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild>
+                  <Link to="/dashboard/notifications" className="flex items-center gap-2" onClick={handleNavClick}>
+                    <Bell className="h-4 w-4" />
+                    <span>Notifications</span>
+                    {unreadAlerts > 0 && (
+                      <Badge variant="destructive" className="ml-auto text-xs h-5 w-5 rounded-full p-0 flex items-center justify-center">
+                        {unreadAlerts}
+                      </Badge>
+                    )}
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
       </SidebarContent>
     </SidebarComponent>
   );
