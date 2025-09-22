@@ -20,21 +20,19 @@ import {
 } from 'lucide-react';
 import { useLegalData } from '@/contexts/LegalDataContext';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 
 interface Document {
   id: string;
   name: string;
-  type: 'pdf' | 'doc' | 'docx' | 'image' | 'video' | 'audio' | 'other' | 'folder';
+  type: 'pdf' | 'doc' | 'docx' | 'image' | 'video' | 'audio' | 'other';
   size: number;
   uploadDate: Date;
   caseId?: string;
   clientId?: string;
-  category: string;
-  tags?: string[];
-  url?: string;
+  category: 'evidence' | 'contract' | 'court-order' | 'correspondence' | 'other';
+  tags: string[];
+  url: string;
 }
 
 const Documents = () => {
@@ -43,11 +41,10 @@ const Documents = () => {
   const [typeFilter, setTypeFilter] = useState('all');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [caseFilter, setCaseFilter] = useState('all');
-  const [createFolderOpen, setCreateFolderOpen] = useState(false);
-  const [newFolderName, setNewFolderName] = useState('');
   const { toast } = useToast();
 
-  const [documents, setDocuments] = useState<Document[]>([
+  // Mock documents data - in real app, this would come from context or API
+  const [documents] = useState<Document[]>([
     {
       id: '1',
       name: 'Contract Agreement.pdf',
@@ -170,33 +167,12 @@ const Documents = () => {
 
   const handleDelete = (doc: Document) => {
     if (confirm(`Are you sure you want to delete ${doc.name}?`)) {
-      setDocuments(prev => prev.filter(d => d.id !== doc.id));
       toast({
         title: "Document Deleted",
         description: `${doc.name} has been removed.`,
         variant: "destructive",
       });
     }
-  };
-
-  const handleCreateFolder = () => {
-    if (!newFolderName.trim()) {
-      toast({
-        title: "Error",
-        description: "Please enter a folder name",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Create folder logic here
-    toast({
-      title: "Folder Created",
-      description: `Folder "${newFolderName}" has been created successfully.`,
-    });
-    
-    setNewFolderName('');
-    setCreateFolderOpen(false);
   };
 
   // Group documents by category
@@ -212,13 +188,9 @@ const Documents = () => {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="min-w-0 flex-1">
-          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground truncate">
-            Document Management
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Secure storage for all legal documents
-          </p>
+        <div>
+          <h1 className="text-3xl font-bold">Document Management</h1>
+          <p className="text-muted-foreground">Secure storage for all legal documents</p>
         </div>
         
         <div className="flex gap-2">
@@ -226,38 +198,10 @@ const Documents = () => {
             <Upload className="mr-2 h-4 w-4" />
             Upload Documents
           </Button>
-          <Dialog open={createFolderOpen} onOpenChange={setCreateFolderOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <FolderOpen className="mr-2 h-4 w-4" />
-                Create Folder
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Create New Folder</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="folderName">Folder Name</Label>
-                  <Input
-                    id="folderName"
-                    placeholder="Enter folder name"
-                    value={newFolderName}
-                    onChange={(e) => setNewFolderName(e.target.value)}
-                  />
-                </div>
-                <div className="flex gap-2">
-                  <Button onClick={handleCreateFolder} className="flex-1">
-                    Create Folder
-                  </Button>
-                  <Button variant="outline" onClick={() => setCreateFolderOpen(false)}>
-                    Cancel
-                  </Button>
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
+          <Button>
+            <FolderOpen className="mr-2 h-4 w-4" />
+            Create Folder
+          </Button>
         </div>
       </div>
 

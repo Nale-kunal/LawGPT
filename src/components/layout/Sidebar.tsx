@@ -41,19 +41,12 @@ const navigation = [
 export const Sidebar = () => {
   const location = useLocation();
   const { alerts } = useLegalData();
-  const { state, setOpenMobile } = useSidebar();
+  const { state } = useSidebar();
   const unreadAlerts = alerts.filter(alert => !alert.isRead).length;
-
-  const handleNavClick = () => {
-    // Auto-close sidebar on mobile after navigation
-    if (window.innerWidth < 768) {
-      setOpenMobile(false);
-    }
-  };
 
   return (
     <SidebarComponent 
-      className="border-sidebar-border group-data-[collapsible=icon]:hover:w-64 transition-all duration-300"
+      className="border-sidebar-border"
       collapsible="icon"
     >
       <SidebarHeader className="border-b border-sidebar-border">
@@ -83,7 +76,7 @@ export const Sidebar = () => {
                         isActive && "bg-sidebar-accent text-sidebar-accent-foreground"
                       )}
                     >
-                      <Link to={item.href} className="flex items-center gap-3" onClick={handleNavClick}>
+                      <Link to={item.href} className="flex items-center gap-3">
                         <item.icon className="h-4 w-4" />
                         <span>{item.name}</span>
                         {item.name === 'Dashboard' && unreadAlerts > 0 && (
@@ -105,7 +98,7 @@ export const Sidebar = () => {
             <SidebarMenu>
               <SidebarMenuItem>
                 <SidebarMenuButton asChild>
-                  <Link to="/dashboard/notifications" className="flex items-center gap-2" onClick={handleNavClick}>
+                  <Link to="/dashboard" className="flex items-center gap-2">
                     <Bell className="h-4 w-4" />
                     <span>Notifications</span>
                     {unreadAlerts > 0 && (
