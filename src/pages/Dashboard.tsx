@@ -146,7 +146,7 @@ const Dashboard = () => {
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
         {/* Today's Cases */}
-        <div className="lg:col-span-2">
+        <div className="lg:col-span-2 xl:col-span-2">
           <Card className="card-gradient shadow-elevated">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -156,7 +156,7 @@ const Dashboard = () => {
               <CardDescription>Cases scheduled for today</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3 max-h-80 overflow-y-auto">
+              <div className="space-y-3 max-h-72 overflow-y-auto">
                 {todaysCases.length === 0 ? (
                   <p className="text-center text-muted-foreground py-8">
                     No hearings scheduled for today
@@ -216,18 +216,7 @@ const Dashboard = () => {
         {/* Sidebar */}
         <div className="space-y-4 md:space-y-6">
           {/* Alerts */}
-          <Card className="card-gradient shadow-elevated">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <AlertTriangle className="h-5 w-5 text-warning" />
-                Alerts ({unreadAlerts.length})
-              </CardTitle>
-              <CardDescription>Recent notifications</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <AlertManager />
-            </CardContent>
-          </Card>
+          <AlertManager />
 
           {/* Quick Actions */}
           <Card className="card-gradient shadow-elevated">

@@ -1,97 +1,54 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { 
-  Upload, 
-  File, 
-  FileText, 
-  Image, 
-  Video, 
+import {
+  Upload,
+  File,
+  FileText,
+  Image,
+  Video,
   Music,
-  Download, 
+  Download,
   Search,
-  Filter,
   Eye,
   Trash2,
   FolderOpen,
-  Plus
 } from 'lucide-react';
 import { useLegalData } from '@/contexts/LegalDataContext';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 
-interface Document {
-  id: string;
-  name: string;
-  type: 'pdf' | 'doc' | 'docx' | 'image' | 'video' | 'audio' | 'other';
-  size: number;
-  uploadDate: Date;
-  caseId?: string;
-  clientId?: string;
-  category: 'evidence' | 'contract' | 'court-order' | 'correspondence' | 'other';
-  tags: string[];
-  url: string;
-}
+interface ApiFile { _id: string; name: string; mimetype: string; size: number; url: string; createdAt: string; folderId?: string; tags?: string[] }
+interface ApiFolder { _id: string; name: string; parentId?: string }
+
+type DocType = 'pdf' | 'doc' | 'docx' | 'image' | 'video' | 'audio' | 'other';
 
 const Documents = () => {
-  const { cases, clients } = useLegalData();
+  const { cases } = useLegalData();
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
-  const [categoryFilter, setCategoryFilter] = useState('all');
   const [caseFilter, setCaseFilter] = useState('all');
   const { toast } = useToast();
 
-  // Mock documents data - in real app, this would come from context or API
-  const [documents] = useState<Document[]>([
-    {
-      id: '1',
-      name: 'Contract Agreement.pdf',
-      type: 'pdf',
-      size: 2048000, // 2MB
-      uploadDate: new Date('2024-11-15'),
-      caseId: '1',
-      category: 'contract',
-      tags: ['contract', 'agreement', 'signed'],
-      url: '#'
-    },
-    {
-      id: '2',
-      name: 'Evidence Photo 1.jpg',
-      type: 'image',
-      size: 1536000, // 1.5MB
-      uploadDate: new Date('2024-11-20'),
-      caseId: '1',
-      category: 'evidence',
-      tags: ['evidence', 'photo', 'accident'],
-      url: '#'
-    },
-    {
-      id: '3',
-      name: 'Court Order.pdf',
-      type: 'pdf',
-      size: 512000, // 512KB
-      uploadDate: new Date('2024-12-01'),
-      caseId: '2',
-      category: 'court-order',
-      tags: ['court', 'order', 'judgment'],
-      url: '#'
-    },
-    {
-      id: '4',
-      name: 'Client Correspondence.docx',
-      type: 'docx',
-      size: 256000, // 256KB
-      uploadDate: new Date('2024-12-05'),
-      clientId: '1',
-      category: 'correspondence',
-      tags: ['client', 'letter', 'communication'],
-      url: '#'
-    }
-  ]);
+  const [folders, setFolders] = useState<ApiFolder[]>([]);
+  const [currentFolderId, setCurrentFolderId] = useState<string | undefined>(undefined);
+  const [files, setFiles] = useState<ApiFile[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const backendUrl = (import.meta as any).env?.VITE_API_URL || 'http://localhost:5000';
 
-  const getFileIcon = (type: Document['type']) => {
+  const detectType = (mimetype: string): DocType => {
+    if (mimetype.includes('pdf')) return 'pdf';
+    if (mimetype.includes('image')) return 'image';
+    if (mimetype.includes('video')) return 'video';
+    if (mimetype.includes('audio')) return 'audio';
+    if (mimetype.includes('msword')) return 'doc';
+    if (mimetype.includes('officedocument.wordprocessingml')) return 'docx';
+    return 'other';
+  };
+
+  const getFileIcon = (type: DocType) => {
     switch (type) {
       case 'pdf':
       case 'doc':
@@ -108,16 +65,6 @@ const Documents = () => {
     }
   };
 
-  const getCategoryColor = (category: Document['category']) => {
-    switch (category) {
-      case 'evidence': return 'destructive';
-      case 'contract': return 'default';
-      case 'court-order': return 'secondary';
-      case 'correspondence': return 'outline';
-      default: return 'outline';
-    }
-  };
-
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return '0 Bytes';
     const k = 1024;
@@ -126,62 +73,127 @@ const Documents = () => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  const filteredDocuments = documents.filter(doc => {
-    const matchesSearch = doc.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         doc.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()));
-    const matchesType = typeFilter === 'all' || doc.type === typeFilter;
-    const matchesCategory = categoryFilter === 'all' || doc.category === categoryFilter;
-    const matchesCase = caseFilter === 'all' || doc.caseId === caseFilter;
-    
-    return matchesSearch && matchesType && matchesCategory && matchesCase;
-  });
+  const filteredFiles = useMemo(() => {
+    return files.filter(f => {
+      const matchesSearch = f.name.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesType = typeFilter === 'all' || detectType(f.mimetype) === typeFilter;
+      const matchesCase = caseFilter === 'all';
+      return matchesSearch && matchesType && matchesCase;
+    });
+  }, [files, searchTerm, typeFilter, caseFilter]);
 
   const handleFileUpload = () => {
-    // Create file input element
     const input = document.createElement('input');
     input.type = 'file';
     input.multiple = true;
     input.accept = '.pdf,.doc,.docx,.jpg,.jpeg,.png,.mp4,.mp3';
-    
-    input.onchange = (event) => {
-      const files = (event.target as HTMLInputElement).files;
-      if (files) {
-        Array.from(files).forEach(file => {
-          toast({
-            title: "File Uploaded",
-            description: `${file.name} (${formatFileSize(file.size)}) has been uploaded successfully.`,
-          });
-        });
+
+    input.onchange = async (event) => {
+      const f = (event.target as HTMLInputElement).files;
+      if (!f || f.length === 0) return;
+      const form = new FormData();
+      Array.from(f).forEach(file => form.append('files', file));
+      if (currentFolderId) form.append('folderId', currentFolderId);
+      try {
+        setIsLoading(true);
+        const res = await fetch('/api/documents/upload', { method: 'POST', credentials: 'include', body: form });
+        if (!res.ok) throw new Error('Upload failed');
+        await loadFiles();
+        toast({ title: 'Files uploaded successfully' });
+      } catch {
+        toast({ title: 'Upload failed', variant: 'destructive' });
+      } finally {
+        setIsLoading(false);
       }
     };
-    
+
     input.click();
   };
 
-  const handleDownload = (doc: Document) => {
-    toast({
-      title: "Download Started",
-      description: `Downloading ${doc.name}...`,
-    });
+  const fileUrl = (doc: ApiFile) => `${backendUrl}${doc.url}`;
+
+  const handleDownload = (doc: ApiFile) => {
+    const a = document.createElement('a');
+    a.href = fileUrl(doc);
+    a.download = doc.name;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   };
 
-  const handleDelete = (doc: Document) => {
-    if (confirm(`Are you sure you want to delete ${doc.name}?`)) {
-      toast({
-        title: "Document Deleted",
-        description: `${doc.name} has been removed.`,
-        variant: "destructive",
-      });
+  const handleDelete = async (doc: ApiFile) => {
+    if (!confirm(`Delete ${doc.name}?`)) return;
+    try {
+      setIsLoading(true);
+      const res = await fetch(`/api/documents/files/${doc._id}`, { method: 'DELETE', credentials: 'include' });
+      if (!res.ok) throw new Error('Delete failed');
+      await loadFiles();
+      toast({ title: 'Document deleted' });
+    } catch {
+      toast({ title: 'Delete failed', variant: 'destructive' });
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  // Group documents by category
-  const documentsByCategory = {
-    evidence: filteredDocuments.filter(d => d.category === 'evidence'),
-    contract: filteredDocuments.filter(d => d.category === 'contract'),
-    'court-order': filteredDocuments.filter(d => d.category === 'court-order'),
-    correspondence: filteredDocuments.filter(d => d.category === 'correspondence'),
-    other: filteredDocuments.filter(d => d.category === 'other')
+  const printDocument = (doc: ApiFile) => {
+    const url = fileUrl(doc);
+    const type = detectType(doc.mimetype);
+    const w = window.open('', '_blank');
+    if (!w) return;
+    const safeUrl = url;
+    const content = type === 'image'
+      ? `<img src="${safeUrl}" style="max-width:100%;" onload="window.print();window.close();" />`
+      : `<iframe src="${safeUrl}" style="width:100%;height:100vh;border:0;" onload="setTimeout(()=>{window.print();window.close();},300);"></iframe>`;
+    w.document.write(`<html><head><title>${doc.name}</title></head><body style="margin:0">${content}</body></html>`);
+    w.document.close();
+  };
+
+  const loadFolders = async () => {
+    const res = await fetch('/api/documents/folders', { credentials: 'include' });
+    if (res.ok) {
+      const data = await res.json();
+      setFolders(data.folders);
+    }
+  };
+
+  const loadFiles = async () => {
+    if (!currentFolderId) { setFiles([]); return; }
+    const q = `?folderId=${currentFolderId}`;
+    const res = await fetch(`/api/documents/files${q}`, { credentials: 'include' });
+    if (res.ok) {
+      const data = await res.json();
+      setFiles(data.files);
+    }
+  };
+
+  useEffect(() => { loadFolders(); }, []);
+  useEffect(() => { loadFiles(); }, [currentFolderId]);
+
+  const createFolder = async () => {
+    const name = prompt('Folder name');
+    if (!name) return;
+    const res = await fetch('/api/documents/folders', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+      body: JSON.stringify({ name, parentId: currentFolderId })
+    });
+    if (res.ok) { await loadFolders(); toast({ title: 'Folder created' }); }
+  };
+
+  const renameFolder = async (folder: ApiFolder) => {
+    const name = prompt('New folder name', folder.name);
+    if (!name) return;
+    const res = await fetch(`/api/documents/folders/${folder._id}`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+      body: JSON.stringify({ name })
+    });
+    if (res.ok) { await loadFolders(); toast({ title: 'Folder renamed' }); }
+  };
+
+  const deleteFolder = async (folder: ApiFolder) => {
+    if (!confirm(`Delete folder "${folder.name}" and its files?`)) return;
+    const res = await fetch(`/api/documents/folders/${folder._id}`, { method: 'DELETE', credentials: 'include' });
+    if (res.ok) { if (currentFolderId === folder._id) setCurrentFolderId(undefined); await loadFolders(); await loadFiles(); toast({ title: 'Folder deleted' }); }
   };
 
   return (
@@ -194,11 +206,11 @@ const Documents = () => {
         </div>
         
         <div className="flex gap-2">
-          <Button variant="outline" onClick={handleFileUpload}>
+          <Button variant="outline" onClick={handleFileUpload} disabled={isLoading}>
             <Upload className="mr-2 h-4 w-4" />
             Upload Documents
           </Button>
-          <Button>
+          <Button onClick={createFolder} disabled={isLoading}>
             <FolderOpen className="mr-2 h-4 w-4" />
             Create Folder
           </Button>
@@ -213,43 +225,41 @@ const Documents = () => {
             <File className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{documents.length}</div>
-            <p className="text-xs text-muted-foreground">
-              {Math.round(documents.reduce((sum, doc) => sum + doc.size, 0) / 1048576)} MB used
-            </p>
+            <div className="text-2xl font-bold">{files.length}</div>
+            <p className="text-xs text-muted-foreground">{Math.round(files.reduce((s, f) => s + f.size, 0) / 1048576)} MB used</p>
           </CardContent>
         </Card>
 
         <Card className="shadow-card-custom">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Evidence Files</CardTitle>
+            <CardTitle className="text-sm font-medium">Images</CardTitle>
             <Image className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{documentsByCategory.evidence.length}</div>
-            <p className="text-xs text-muted-foreground">Case evidence</p>
+            <div className="text-2xl font-bold">{files.filter(f => detectType(f.mimetype) === 'image').length}</div>
+            <p className="text-xs text-muted-foreground">Image files</p>
           </CardContent>
         </Card>
 
         <Card className="shadow-card-custom">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Contracts</CardTitle>
+            <CardTitle className="text-sm font-medium">PDF/Docs</CardTitle>
             <FileText className="h-4 w-4 text-secondary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{documentsByCategory.contract.length}</div>
-            <p className="text-xs text-muted-foreground">Legal agreements</p>
+            <div className="text-2xl font-bold">{files.filter(f => ['pdf','doc','docx'].includes(detectType(f.mimetype))).length}</div>
+            <p className="text-xs text-muted-foreground">Documents</p>
           </CardContent>
         </Card>
 
         <Card className="shadow-card-custom">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Court Orders</CardTitle>
-            <FileText className="h-4 w-4 text-accent" />
+            <CardTitle className="text-sm font-medium">Videos</CardTitle>
+            <Video className="h-4 w-4 text-accent" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{documentsByCategory['court-order'].length}</div>
-            <p className="text-xs text-muted-foreground">Judicial orders</p>
+            <div className="text-2xl font-bold">{files.filter(f => detectType(f.mimetype) === 'video').length}</div>
+            <p className="text-xs text-muted-foreground">Video files</p>
           </CardContent>
         </Card>
       </div>
@@ -264,11 +274,12 @@ const Documents = () => {
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap gap-4">
+            <div className="flex-1 min-w-64" />
             <div className="flex-1 min-w-64">
               <div className="relative">
                 <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search documents by name or tags..."
+                  placeholder="Search documents by name..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-8"
@@ -291,20 +302,6 @@ const Documents = () => {
               </SelectContent>
             </Select>
 
-            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger className="w-40">
-                <SelectValue placeholder="Category" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Categories</SelectItem>
-                <SelectItem value="evidence">Evidence</SelectItem>
-                <SelectItem value="contract">Contract</SelectItem>
-                <SelectItem value="court-order">Court Order</SelectItem>
-                <SelectItem value="correspondence">Correspondence</SelectItem>
-                <SelectItem value="other">Other</SelectItem>
-              </SelectContent>
-            </Select>
-
             <Select value={caseFilter} onValueChange={setCaseFilter}>
               <SelectTrigger className="w-40">
                 <SelectValue placeholder="Case" />
@@ -322,77 +319,60 @@ const Documents = () => {
         </CardContent>
       </Card>
 
+      {/* Folders Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {folders.map((f) => (
+          <Card key={f._id} className={"shadow-card-custom hover:shadow-elevated transition cursor-pointer " + (currentFolderId === f._id ? 'ring-2 ring-primary' : '')} onClick={() => setCurrentFolderId(f._id)}>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center justify-between">
+                <span>{f.name}</span>
+                <span className="flex gap-1">
+                  <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); renameFolder(f); }} title="Rename">✎</Button>
+                  <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); deleteFolder(f); }} title="Delete">🗑</Button>
+                </span>
+              </CardTitle>
+              <CardDescription>Select to view documents</CardDescription>
+            </CardHeader>
+          </Card>
+        ))}
+      </div>
+
       {/* Documents Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-        {filteredDocuments.map((doc) => {
-          const associatedCase = doc.caseId ? cases.find(c => c.id === doc.caseId) : null;
-          const associatedClient = doc.clientId ? clients.find(c => c.id === doc.clientId) : null;
-          
+        {filteredFiles.map((doc) => {
+          const type = detectType(doc.mimetype);
           return (
-            <Card key={doc.id} className="shadow-card-custom hover:shadow-elevated transition-shadow">
+            <Card key={doc._id} className="shadow-card-custom hover:shadow-elevated transition-shadow">
               <CardHeader>
                 <div className="flex items-start justify-between">
                   <div className="flex items-start gap-3">
-                    {getFileIcon(doc.type)}
+                    {getFileIcon(type)}
                     <div className="flex-1">
                       <CardTitle className="text-sm line-clamp-2">{doc.name}</CardTitle>
                       <CardDescription>{formatFileSize(doc.size)}</CardDescription>
                     </div>
                   </div>
-                  <Badge variant={getCategoryColor(doc.category)}>
-                    {doc.category}
-                  </Badge>
+                  <Badge variant="outline">{type}</Badge>
                 </div>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
                   <div className="text-xs text-muted-foreground">
-                    Uploaded: {doc.uploadDate.toLocaleDateString('en-IN')}
+                    Uploaded: {new Date(doc.createdAt).toLocaleDateString('en-IN')}
                   </div>
-
-                  {associatedCase && (
-                    <div className="text-xs">
-                      <span className="text-muted-foreground">Case: </span>
-                      <span className="font-medium">{associatedCase.caseNumber}</span>
-                    </div>
-                  )}
-
-                  {associatedClient && (
-                    <div className="text-xs">
-                      <span className="text-muted-foreground">Client: </span>
-                      <span className="font-medium">{associatedClient.name}</span>
-                    </div>
-                  )}
-
-                  {doc.tags.length > 0 && (
-                    <div className="flex flex-wrap gap-1">
-                      {doc.tags.map((tag, index) => (
-                        <Badge key={index} variant="outline" className="text-xs">
-                          {tag}
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
                 </div>
 
-                <div className="flex gap-1 mt-4 pt-3 border-t">
-                  <Button size="sm" variant="outline">
+                 <div className="flex flex-wrap items-center gap-2 mt-4 pt-3 border-t">
+                  <Button size="sm" variant="outline" onClick={() => window.open(fileUrl(doc), '_blank', 'noopener') || undefined}>
                     <Eye className="mr-2 h-3 w-3" />
                     View
                   </Button>
-                  <Button 
-                    size="sm" 
-                    variant="outline"
-                    onClick={() => handleDownload(doc)}
-                  >
+                  <Button size="sm" variant="outline" onClick={() => handleDownload(doc)}>
                     <Download className="mr-2 h-3 w-3" />
                     Download
                   </Button>
-                  <Button 
-                    size="sm" 
-                    variant="outline"
-                    onClick={() => handleDelete(doc)}
-                  >
+                  <Button size="sm" variant="outline" onClick={() => printDocument(doc)}>Print</Button>
+                  <Button size="sm" variant="outline" onClick={() => handleDelete(doc)}>
                     <Trash2 className="mr-2 h-3 w-3" />
                     Delete
                   </Button>
@@ -403,16 +383,13 @@ const Documents = () => {
         })}
       </div>
 
-      {filteredDocuments.length === 0 && (
+      {filteredFiles.length === 0 && (
         <Card>
           <CardContent className="text-center py-12">
             <File className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
             <h3 className="text-lg font-semibold mb-2">No documents found</h3>
             <p className="text-muted-foreground mb-4">
-              {searchTerm || typeFilter !== 'all' || categoryFilter !== 'all' 
-                ? 'No documents match your current filters.' 
-                : 'Start by uploading your first document.'
-              }
+              {searchTerm || typeFilter !== 'all' ? 'No documents match your current filters.' : 'Start by uploading your first document.'}
             </p>
             <Button onClick={handleFileUpload}>
               <Upload className="mr-2 h-4 w-4" />
@@ -427,15 +404,9 @@ const Documents = () => {
         <CardContent className="text-center py-8">
           <Upload className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
           <h3 className="text-lg font-semibold mb-2">Drop files here to upload</h3>
-          <p className="text-muted-foreground mb-4">
-            Supports PDF, DOC, DOCX, images, videos, and audio files
-          </p>
-          <Button onClick={handleFileUpload}>
-            Choose Files to Upload
-          </Button>
-          <p className="text-xs text-muted-foreground mt-2">
-            Maximum file size: 50MB per file
-          </p>
+          <p className="text-muted-foreground mb-4">Supports PDF, DOC, DOCX, images, videos, and audio files</p>
+          <Button onClick={handleFileUpload}>Choose Files to Upload</Button>
+          <p className="text-xs text-muted-foreground mt-2">Maximum file size: 50MB per file</p>
         </CardContent>
       </Card>
     </div>

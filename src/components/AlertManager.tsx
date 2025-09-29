@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Bell, Clock, AlertTriangle, CheckCircle, Plus, X } from 'lucide-react';
+import { Bell, Clock, AlertTriangle, CheckCircle, Plus, X, Trash2 } from 'lucide-react';
 import { useLegalData, Alert } from '@/contexts/LegalDataContext';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
@@ -11,8 +11,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 
 export const AlertManager = () => {
-  const { cases, alerts, addAlert, markAlertAsRead } = useLegalData();
+  const { cases, alerts, addAlert, markAlertAsRead, deleteAlert } = useLegalData();
   const [showCreateAlert, setShowCreateAlert] = useState(false);
+  const [isActionBusy, setIsActionBusy] = useState(false);
   const { toast } = useToast();
 
   // Form state for creating alerts
@@ -23,40 +24,7 @@ export const AlertManager = () => {
     alertTime: ''
   });
 
-  // Auto-generate hearing alerts
-  useEffect(() => {
-    cases.forEach(case_ => {
-      if (case_.hearingDate) {
-        const hearingDate = new Date(case_.hearingDate);
-        const now = new Date();
-        
-        // Create alerts for upcoming hearings (24h, 6h, 1h before)
-        [24, 6, 1].forEach(hours => {
-          const alertTime = new Date(hearingDate.getTime() - (hours * 60 * 60 * 1000));
-          
-          if (alertTime > now) {
-            const existingAlert = alerts.find(alert => 
-              alert.caseId === case_.id && 
-              alert.type === 'hearing' &&
-              Math.abs(new Date(alert.alertTime).getTime() - alertTime.getTime()) < 60000
-            );
-
-            if (!existingAlert) {
-              setTimeout(() => {
-                addAlert({
-                  caseId: case_.id,
-                  type: 'hearing',
-                  message: `Hearing reminder: ${case_.caseNumber} - ${case_.clientName} at ${case_.courtName} in ${hours} hour${hours !== 1 ? 's' : ''}`,
-                  alertTime: alertTime,
-                  isRead: false
-                });
-              }, 100);
-            }
-          }
-        });
-      }
-    });
-  }, [cases, alerts, addAlert]);
+  // Removed auto-generation to avoid duplicate/regression behavior. Consider backend scheduler if needed.
 
   const handleCreateAlert = () => {
     if (!alertForm.caseId || !alertForm.message || !alertForm.alertTime) {
@@ -111,27 +79,27 @@ export const AlertManager = () => {
   };
 
   const unreadAlerts = alerts.filter(alert => !alert.isRead);
-  const recentAlerts = alerts
+  const recentAlerts = [...alerts]
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     .slice(0, 10);
 
   return (
-    <Card className="shadow-elevated">
-      <CardHeader>
-        <div className="flex items-center justify-between">
+    <Card className="shadow-elevated lg:sticky lg:top-4">
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between gap-2">
           <CardTitle className="flex items-center gap-2">
             <Bell className="h-5 w-5 text-primary" />
-            Alert Management
+            Notifications
             {unreadAlerts.length > 0 && (
               <Badge variant="destructive">
                 {unreadAlerts.length} new
               </Badge>
             )}
           </CardTitle>
-          
-          <Dialog open={showCreateAlert} onOpenChange={setShowCreateAlert}>
+          <div className="flex items-center gap-2 shrink-0 ml-auto">
+            <Dialog open={showCreateAlert} onOpenChange={setShowCreateAlert}>
             <DialogTrigger asChild>
-              <Button size="sm">
+                <Button size="sm" className="whitespace-nowrap">
                 <Plus className="mr-2 h-4 w-4" />
                 Create Alert
               </Button>
@@ -212,13 +180,14 @@ export const AlertManager = () => {
             </DialogContent>
           </Dialog>
         </div>
+        </div>
         
         <CardDescription>
           Manage notifications and reminders for your cases
         </CardDescription>
       </CardHeader>
-      <CardContent>
-        <div className="space-y-3">
+      <CardContent className="pt-3">
+        <div className="space-y-3 max-h-80 overflow-y-auto pr-2">
           {recentAlerts.length > 0 ? (
             recentAlerts.map((alert) => {
               const associatedCase = cases.find(c => c.id === alert.caseId);
@@ -227,16 +196,16 @@ export const AlertManager = () => {
               return (
                 <div 
                   key={alert.id} 
-                  className={`p-3 rounded-lg border transition-colors ${
+                  className={`p-3 rounded-lg border transition-colors overflow-hidden ${
                     alert.isRead ? 'bg-muted/30' : 'bg-primary/5 border-primary/20'
                   }`}
                 >
                   <div className="flex items-start justify-between">
-                    <div className="flex items-start gap-3 flex-1">
+                    <div className="flex items-start gap-3 flex-1 min-w-0">
                       {getAlertIcon(alert.type)}
-                      <div className="flex-1">
+                      <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
-                          <p className="text-sm font-medium">{alert.message}</p>
+                          <p className="text-sm font-medium break-words truncate">{alert.message}</p>
                           <Badge variant={getAlertBadgeColor(alert.type)}>
                             {alert.type}
                           </Badge>
@@ -262,11 +231,20 @@ export const AlertManager = () => {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => markAlertAsRead(alert.id)}
+                          onClick={async () => { if (isActionBusy) return; setIsActionBusy(true); await markAlertAsRead(alert.id); setIsActionBusy(false); }}
+                          disabled={isActionBusy}
                         >
                           <CheckCircle className="h-4 w-4" />
                         </Button>
                       )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={async () => { if (isActionBusy) return; setIsActionBusy(true); await deleteAlert(alert.id); setIsActionBusy(false); }}
+                        disabled={isActionBusy}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
                 </div>

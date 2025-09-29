@@ -36,17 +36,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check for existing session on mount
-    const checkAuthStatus = () => {
-      const savedUser = localStorage.getItem('legal_pro_user');
-      if (savedUser) {
-        try {
-          setUser(JSON.parse(savedUser));
-        } catch (error) {
+    // Strict: only treat as authenticated if server validates cookie
+    const checkAuthStatus = async () => {
+      try {
+        const res = await fetch('/api/auth/me', { credentials: 'include' });
+        if (res.ok) {
+          const data = await res.json();
+          setUser(data.user);
+          localStorage.setItem('legal_pro_user', JSON.stringify(data.user));
+        } else {
+          setUser(null);
           localStorage.removeItem('legal_pro_user');
         }
+      } catch {
+        setUser(null);
+        localStorage.removeItem('legal_pro_user');
+      } finally {
+        setIsLoading(false);
       }
-      setIsLoading(false);
     };
 
     checkAuthStatus();
@@ -54,30 +61,30 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const login = async (email: string, password: string): Promise<boolean> => {
     setIsLoading(true);
-    
     try {
-      // Simulate API call - In real app, this would be an actual API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Mock login validation
-      if (email && password) {
-        const mockUser: User = {
-          id: '1',
-          name: 'Advocate Rajesh Kumar',
-          email: email,
-          role: 'lawyer',
-          barNumber: 'DL/2018/12345',
-          firm: 'Kumar & Associates'
-        };
-        
-        setUser(mockUser);
-        localStorage.setItem('legal_pro_user', JSON.stringify(mockUser));
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ email, password }),
+      });
+      if (!res.ok) {
         setIsLoading(false);
-        return true;
+        return false;
       }
-      
+      const data = await res.json();
+      const newUser: User = {
+        id: data.user.id,
+        name: data.user.name,
+        email: data.user.email,
+        role: data.user.role,
+        barNumber: data.user.barNumber,
+        firm: data.user.firm,
+      };
+      setUser(newUser);
+      localStorage.setItem('legal_pro_user', JSON.stringify(newUser));
       setIsLoading(false);
-      return false;
+      return true;
     } catch (error) {
       setIsLoading(false);
       return false;
@@ -85,8 +92,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const logout = () => {
-    setUser(null);
-    localStorage.removeItem('legal_pro_user');
+    fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).finally(() => {
+      setUser(null);
+      localStorage.removeItem('legal_pro_user');
+    });
   };
 
   const value = {

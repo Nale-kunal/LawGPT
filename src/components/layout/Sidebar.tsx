@@ -10,7 +10,10 @@ import {
   FolderOpen, 
   Settings,
   Scale,
-  Bell
+  Bell,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeftRight
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useLegalData } from '@/contexts/LegalDataContext';
@@ -24,6 +27,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarFooter,
   useSidebar,
 } from '@/components/ui/sidebar';
 
@@ -41,21 +45,23 @@ const navigation = [
 export const Sidebar = () => {
   const location = useLocation();
   const { alerts } = useLegalData();
-  const { state } = useSidebar();
+  const { state, toggleSidebar } = useSidebar();
   const unreadAlerts = alerts.filter(alert => !alert.isRead).length;
 
   return (
     <SidebarComponent 
-      className="border-sidebar-border"
+      className="border-sidebar-border group hover:[&_[data-sidebar=group-label]]:opacity-100"
       collapsible="icon"
     >
-      <SidebarHeader className="border-b border-sidebar-border">
-        <div className="flex items-center gap-2 px-4 py-3">
-          <Scale className="h-8 w-8 text-primary flex-shrink-0" />
+      <SidebarHeader className="border-b border-sidebar-border px-3">
+        <div className="flex items-center gap-2 py-3">
+          <div className="flex items-center justify-center h-9 w-9 rounded-md bg-primary/10">
+            <Scale className="h-5 w-5 text-primary" />
+          </div>
           {state !== "collapsed" && (
-            <div className="min-w-0">
-              <h1 className="text-xl font-bold text-sidebar-foreground truncate">LegalPro</h1>
-              <p className="text-xs text-sidebar-foreground/60 truncate">Indian Law Management</p>
+            <div className="min-w-0 text-left">
+              <h1 className="text-lg font-bold text-sidebar-foreground truncate leading-tight">LegalPro</h1>
+              <p className="text-[10px] text-sidebar-foreground/60 truncate">Indian Law Management</p>
             </div>
           )}
         </div>
@@ -113,6 +119,20 @@ export const Sidebar = () => {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+
+      {/* Desktop expand/collapse control at bottom */}
+      <SidebarFooter className="border-t border-sidebar-border mt-auto">
+        <div className="w-full px-2 py-2 flex items-center justify-center">
+          <button
+            onClick={toggleSidebar}
+            className="flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition"
+            title={state === 'collapsed' ? 'Expand' : 'Collapse'}
+          >
+            <ChevronsLeftRight className="h-4 w-4" />
+            <span className="sr-only">{state === 'collapsed' ? 'Expand' : 'Collapse'}</span>
+          </button>
+        </div>
+      </SidebarFooter>
     </SidebarComponent>
   );
 };

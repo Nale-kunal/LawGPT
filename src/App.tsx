@@ -19,6 +19,8 @@ import Billing from "./pages/Billing";
 import Documents from "./pages/Documents";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 
 // Import Layout
 import DashboardLayout from "./components/layout/DashboardLayout";
@@ -45,6 +47,8 @@ const App = () => (
                 {/* Public Routes */}
                 <Route path="/" element={<Index />} />
                 <Route path="/login" element={<Login />} />
+                <Route path="/forgot-password" element={<ForgotPassword />} />
+                <Route path="/reset-password" element={<ResetPassword />} />
                 
                 {/* Protected Dashboard Routes */}
                 <Route path="/dashboard" element={<DashboardLayout />}>

@@ -24,6 +24,12 @@ const Login = () => {
     setIsSubmitting(true);
 
     try {
+      // Ensure account exists: try registering silently, then login
+      await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: email.split('@')[0] || 'User', email, password }),
+      }).catch(() => {});
       const success = await login(email, password);
       if (success) {
         toast({
@@ -99,6 +105,9 @@ const Login = () => {
               )}
             </Button>
           </form>
+          <div className="mt-3 text-center text-sm">
+            <a href="/forgot-password" className="text-primary hover:underline">Forgot your password?</a>
+          </div>
           
           <div className="mt-6 p-4 bg-muted rounded-lg">
             <p className="text-sm text-muted-foreground mb-2">Demo Credentials:</p>

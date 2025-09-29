@@ -84,6 +84,7 @@ interface LegalDataContextType {
   alerts: Alert[];
   addAlert: (alertData: Omit<Alert, 'id' | 'createdAt'>) => void;
   markAlertAsRead: (alertId: string) => void;
+  deleteAlert: (alertId: string) => void;
   
   // Legal Sections
   legalSections: LegalSection[];
@@ -155,27 +156,44 @@ export const LegalDataProvider: React.FC<LegalDataProviderProps> = ({ children }
   const [legalSections] = useState<LegalSection[]>(mockLegalSections);
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
 
+  // Initial loads
+  React.useEffect(() => {
+    // Load initial data from API
+    Promise.all([
+      fetch('/api/cases', { credentials: 'include' }).then(r => r.ok ? r.json() : Promise.resolve([])),
+      fetch('/api/clients', { credentials: 'include' }).then(r => r.ok ? r.json() : Promise.resolve([])),
+      fetch('/api/alerts', { credentials: 'include' }).then(r => r.ok ? r.json() : Promise.resolve([])),
+      fetch('/api/time-entries', { credentials: 'include' }).then(r => r.ok ? r.json() : Promise.resolve([])),
+    ]).then(([casesRes, clientsRes, alertsRes, timeEntriesRes]) => {
+      setCases(casesRes.map(mapCaseFromApi));
+      setClients(clientsRes.map(mapClientFromApi));
+      setAlerts(alertsRes.map(mapAlertFromApi));
+      setTimeEntries(timeEntriesRes.map(mapTimeEntryFromApi));
+    }).catch(() => {
+      // Silently ignore for now; UI can still function
+    });
+  }, []);
+
   // Case management functions
-  const addCase = (caseData: Omit<Case, 'id' | 'createdAt' | 'updatedAt'>) => {
-    const newCase: Case = {
-      ...caseData,
-      id: Date.now().toString(),
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-    setCases(prev => [...prev, newCase]);
+  const addCase = async (caseData: Omit<Case, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const res = await fetch('/api/cases', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(caseData) });
+    if (res.ok) {
+      const saved = await res.json();
+      setCases(prev => [...prev, mapCaseFromApi(saved)]);
+    }
   };
 
-  const updateCase = (caseId: string, updates: Partial<Case>) => {
-    setCases(prev => prev.map(c => 
-      c.id === caseId 
-        ? { ...c, ...updates, updatedAt: new Date() }
-        : c
-    ));
+  const updateCase = async (caseId: string, updates: Partial<Case>) => {
+    const res = await fetch(`/api/cases/${caseId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(updates) });
+    if (res.ok) {
+      const saved = await res.json();
+      setCases(prev => prev.map(c => c.id === caseId ? mapCaseFromApi(saved) : c));
+    }
   };
 
-  const deleteCase = (caseId: string) => {
-    setCases(prev => prev.filter(c => c.id !== caseId));
+  const deleteCase = async (caseId: string) => {
+    const res = await fetch(`/api/cases/${caseId}`, { method: 'DELETE', credentials: 'include' });
+    if (res.ok) setCases(prev => prev.filter(c => c.id !== caseId));
   };
 
   const getCaseById = (caseId: string) => {
@@ -183,43 +201,49 @@ export const LegalDataProvider: React.FC<LegalDataProviderProps> = ({ children }
   };
 
   // Client management functions
-  const addClient = (clientData: Omit<Client, 'id' | 'createdAt' | 'updatedAt'>) => {
-    const newClient: Client = {
-      ...clientData,
-      id: Date.now().toString(),
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-    setClients(prev => [...prev, newClient]);
+  const addClient = async (clientData: Omit<Client, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const res = await fetch('/api/clients', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(clientData) });
+    if (res.ok) {
+      const saved = await res.json();
+      setClients(prev => [...prev, mapClientFromApi(saved)]);
+    }
   };
 
-  const updateClient = (clientId: string, updates: Partial<Client>) => {
-    setClients(prev => prev.map(c => 
-      c.id === clientId 
-        ? { ...c, ...updates, updatedAt: new Date() }
-        : c
-    ));
+  const updateClient = async (clientId: string, updates: Partial<Client>) => {
+    const res = await fetch(`/api/clients/${clientId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(updates) });
+    if (res.ok) {
+      const saved = await res.json();
+      setClients(prev => prev.map(c => c.id === clientId ? mapClientFromApi(saved) : c));
+    }
   };
 
-  const deleteClient = (clientId: string) => {
-    setClients(prev => prev.filter(c => c.id !== clientId));
+  const deleteClient = async (clientId: string) => {
+    const res = await fetch(`/api/clients/${clientId}`, { method: 'DELETE', credentials: 'include' });
+    if (res.ok) setClients(prev => prev.filter(c => c.id !== clientId));
   };
 
   // Alert management
-  const addAlert = (alertData: Omit<Alert, 'id' | 'createdAt'>) => {
-    const newAlert: Alert = {
-      ...alertData,
-      id: Date.now().toString(),
-      createdAt: new Date()
-    };
-    setAlerts(prev => [...prev, newAlert]);
+  const addAlert = async (alertData: Omit<Alert, 'id' | 'createdAt'>) => {
+    const res = await fetch('/api/alerts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(alertData) });
+    if (res.ok) {
+      const saved = await res.json();
+      setAlerts(prev => [...prev, mapAlertFromApi(saved)]);
+    }
   };
 
-  const markAlertAsRead = (alertId: string) => {
-    setAlerts(prev => prev.map(a => 
-      a.id === alertId ? { ...a, isRead: true } : a
-    ));
+  const markAlertAsRead = async (alertId: string) => {
+    const res = await fetch(`/api/alerts/${alertId}/read`, { method: 'PATCH', credentials: 'include' });
+    if (res.ok) {
+      const saved = await res.json();
+      setAlerts(prev => prev.map(a => a.id === alertId ? mapAlertFromApi(saved) : a));
+    }
   };
+
+  const deleteAlert = async (alertId: string) => {
+    const res = await fetch(`/api/alerts/${alertId}`, { method: 'DELETE', credentials: 'include' });
+    if (res.ok) setAlerts(prev => prev.filter(a => a.id !== alertId));
+  };
+
 
   // Legal research
   const searchLegalSections = (query: string): LegalSection[] => {
@@ -236,12 +260,12 @@ export const LegalDataProvider: React.FC<LegalDataProviderProps> = ({ children }
   };
 
   // Time tracking
-  const addTimeEntry = (entry: Omit<TimeEntry, 'id'>) => {
-    const newEntry: TimeEntry = {
-      ...entry,
-      id: Date.now().toString()
-    };
-    setTimeEntries(prev => [...prev, newEntry]);
+  const addTimeEntry = async (entry: Omit<TimeEntry, 'id'>) => {
+    const res = await fetch('/api/time-entries', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(entry) });
+    if (res.ok) {
+      const saved = await res.json();
+      setTimeEntries(prev => [...prev, mapTimeEntryFromApi(saved)]);
+    }
   };
 
   const value = {
@@ -257,6 +281,7 @@ export const LegalDataProvider: React.FC<LegalDataProviderProps> = ({ children }
     alerts,
     addAlert,
     markAlertAsRead,
+    deleteAlert,
     legalSections,
     searchLegalSections,
     timeEntries,
@@ -269,3 +294,68 @@ export const LegalDataProvider: React.FC<LegalDataProviderProps> = ({ children }
     </LegalDataContext.Provider>
   );
 };
+
+// Mappers
+function mapCaseFromApi(raw: any): Case {
+  return {
+    id: raw._id || raw.id,
+    caseNumber: raw.caseNumber,
+    clientName: raw.clientName,
+    opposingParty: raw.opposingParty,
+    courtName: raw.courtName,
+    judgeName: raw.judgeName,
+    hearingDate: raw.hearingDate ? new Date(raw.hearingDate) : undefined as any,
+    hearingTime: raw.hearingTime,
+    status: raw.status,
+    priority: raw.priority,
+    caseType: raw.caseType,
+    description: raw.description,
+    nextHearing: raw.nextHearing ? new Date(raw.nextHearing) : undefined as any,
+    documents: raw.documents || [],
+    notes: raw.notes || '',
+    alerts: [],
+    createdAt: raw.createdAt ? new Date(raw.createdAt) : new Date(),
+    updatedAt: raw.updatedAt ? new Date(raw.updatedAt) : new Date(),
+  } as Case;
+}
+
+function mapClientFromApi(raw: any): Client {
+  return {
+    id: raw._id || raw.id,
+    name: raw.name,
+    email: raw.email,
+    phone: raw.phone,
+    address: raw.address || '',
+    panNumber: raw.panNumber,
+    aadharNumber: raw.aadharNumber,
+    cases: raw.cases || [],
+    documents: raw.documents || [],
+    notes: raw.notes || '',
+    createdAt: raw.createdAt ? new Date(raw.createdAt) : new Date(),
+    updatedAt: raw.updatedAt ? new Date(raw.updatedAt) : new Date(),
+  } as Client;
+}
+
+function mapAlertFromApi(raw: any): Alert {
+  return {
+    id: raw._id || raw.id,
+    caseId: raw.caseId,
+    type: raw.type,
+    message: raw.message,
+    alertTime: raw.alertTime ? new Date(raw.alertTime) : new Date(),
+    isRead: !!raw.isRead,
+    createdAt: raw.createdAt ? new Date(raw.createdAt) : new Date(),
+  } as Alert;
+}
+
+function mapTimeEntryFromApi(raw: any): TimeEntry {
+  return {
+    id: raw._id || raw.id,
+    caseId: raw.caseId,
+    description: raw.description,
+    duration: raw.duration,
+    hourlyRate: raw.hourlyRate,
+    date: raw.date ? new Date(raw.date) : new Date(),
+    billable: !!raw.billable,
+  } as TimeEntry;
+}

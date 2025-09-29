@@ -1,73 +1,48 @@
-# Welcome to your Lovable project
+# LegalPro / Lawyer Zen
 
-## Project info
+Frontend: Vite + React + TypeScript + shadcn/ui
 
-**URL**: https://lovable.dev/projects/ccbd8e0c-4e4b-4d9e-835e-675ed9317c9a
+Backend: Express + MongoDB (Mongoose) + JWT
 
-## How can I edit this code?
+## Getting Started
 
-There are several ways of editing your application.
+1. Install dependencies
 
-**Use Lovable**
+```bash
+npm install
+cd server && npm install && cd ..
+```
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/ccbd8e0c-4e4b-4d9e-835e-675ed9317c9a) and start prompting.
+2. Configure environment for API
 
-Changes made via Lovable will be committed automatically to this repo.
+Create `server/.env` with:
 
-**Use your preferred IDE**
+```bash
+PORT=5000
+MONGODB_URI=mongodb://127.0.0.1:27017/lawyer_zen
+JWT_SECRET=replace_me_with_strong_secret
+CORS_ORIGIN=http://localhost:8080
+```
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+Optional: seed legal sections
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+```bash
+cd server
+npm run seed:legal
+cd ..
+```
 
-Follow these steps:
+3. Run dev servers
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+```bash
+# terminal 1 (API)
+cd server
+npm run dev
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# terminal 2 (Frontend)
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+App runs on http://localhost:8080
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
-
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/ccbd8e0c-4e4b-4d9e-835e-675ed9317c9a) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+API runs on http://localhost:5000 (proxied at `/api` by Vite)

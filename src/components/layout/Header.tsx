@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
-import { LogOut, User, Bell, Moon, Sun, Menu } from 'lucide-react';
+import { LogOut, User, Bell, Moon, Sun, Menu, Settings } from 'lucide-react';
 import { useTheme } from '@/contexts/ThemeContext';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import {
@@ -14,15 +14,22 @@ import {
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { useLegalData } from '@/contexts/LegalDataContext';
+import { useNavigate } from 'react-router-dom';
 
 export const Header = () => {
   const { user, logout } = useAuth();
   const { alerts } = useLegalData();
   const { theme, setTheme } = useTheme();
+  const navigate = useNavigate();
   const unreadAlerts = alerts.filter(alert => !alert.isRead).length;
 
   const handleLogout = () => {
     logout();
+  };
+
+  const handleProfileClick = () => {
+    console.log('Navigating to settings...');
+    navigate('/dashboard/settings');
   };
 
   return (
@@ -57,7 +64,7 @@ export const Header = () => {
           variant="ghost" 
           size="sm" 
           className="relative h-8 w-8 p-0"
-          onClick={() => window.location.href = '/dashboard'}
+          onClick={() => navigate('/dashboard')}
         >
           <Bell className="h-4 w-4" />
           {unreadAlerts > 0 && (
@@ -96,9 +103,9 @@ export const Header = () => {
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => window.location.href = '/settings'}>
-              <User className="mr-2 h-4 w-4" />
-              <span>Profile</span>
+            <DropdownMenuItem onClick={handleProfileClick}>
+              <Settings className="mr-2 h-4 w-4" />
+              <span>Profile Settings</span>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleLogout}>
