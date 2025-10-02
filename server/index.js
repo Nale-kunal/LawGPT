@@ -12,6 +12,7 @@ import timeEntryRoutes from './src/routes/timeEntries.js';
 import legalSectionRoutes from './src/routes/legalSections.js';
 import documentsRoutes from './src/routes/documents.js';
 import invoiceRoutes from './src/routes/invoices.js';
+import dashboardRoutes from './src/routes/dashboard.js';
 import path from 'path';
 
 dotenv.config();
@@ -35,6 +36,7 @@ app.use('/api/time-entries', timeEntryRoutes);
 app.use('/api/legal-sections', legalSectionRoutes);
 app.use('/api/documents', documentsRoutes);
 app.use('/api/invoices', invoiceRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 
 // Serve uploads
 import { fileURLToPath } from 'url';

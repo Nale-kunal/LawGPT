@@ -169,4 +169,17 @@
   .transition-spring {
     transition: var(--transition-spring);
   }
+  
+  /* File name truncation utility */
+  .filename-truncate {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    word-wrap: break-word;
+    word-break: break-word;
+    hyphens: auto;
+    line-height: 1.4;
+    max-height: calc(1.4em * 2); /* Fallback for browsers without line-clamp support */
+  }
 }

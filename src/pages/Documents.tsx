@@ -28,6 +28,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface ApiFile { 
   _id: string; 
@@ -580,7 +581,18 @@ const Documents = () => {
                       {getFileIcon(type)}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <CardTitle className="text-sm line-clamp-2 break-words">{doc.name}</CardTitle>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <CardTitle className="text-sm filename-truncate cursor-help">
+                              {doc.name}
+                            </CardTitle>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p className="max-w-xs break-words">{doc.name}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                       <CardDescription className="flex items-center gap-2 mt-1">
                         <HardDrive className="h-3 w-3" />
                         {formatFileSize(doc.size)}

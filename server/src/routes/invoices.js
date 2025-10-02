@@ -3,6 +3,7 @@ import Invoice from '../models/Invoice.js';
 import Client from '../models/Client.js';
 import { requireAuth } from '../middleware/auth.js';
 import { sendInvoiceEmail } from '../utils/mailer.js';
+import { logActivity } from '../middleware/activityLogger.js';
 
 const router = express.Router();
 router.use(requireAuth);
@@ -19,19 +20,87 @@ router.get('/:id', async (req, res) => {
 });
 
 router.post('/', async (req, res) => {
-  const data = { ...req.body, owner: req.user.userId };
-  const created = await Invoice.create(data);
-  res.status(201).json(created);
+  try {
+    const data = { ...req.body, owner: req.user.userId };
+    const created = await Invoice.create(data);
+    
+    // Get client info for activity log
+    const client = await Client.findById(created.clientId);
+    
+    // Log activity
+    await logActivity(
+      req.user.userId,
+      'invoice_created',
+      `Invoice ${created.invoiceNumber} created for ${client?.name || 'client'}`,
+      'invoice',
+      created._id,
+      {
+        invoiceNumber: created.invoiceNumber,
+        clientName: client?.name,
+        amount: created.total,
+        currency: created.currency,
+        status: created.status
+      }
+    );
+    
+    res.status(201).json(created);
+  } catch (error) {
+    console.error('Create invoice error:', error);
+    res.status(500).json({ error: 'Failed to create invoice' });
+  }
 });
 
 router.put('/:id', async (req, res) => {
-  const updated = await Invoice.findOneAndUpdate(
-    { _id: req.params.id, owner: req.user.userId },
-    req.body,
-    { new: true }
-  );
-  if (!updated) return res.status(404).json({ error: 'Not found' });
-  res.json(updated);
+  try {
+    const original = await Invoice.findOne({ _id: req.params.id, owner: req.user.userId });
+    if (!original) return res.status(404).json({ error: 'Not found' });
+    
+    const updated = await Invoice.findOneAndUpdate(
+      { _id: req.params.id, owner: req.user.userId },
+      req.body,
+      { new: true }
+    );
+    
+    // Get client info for activity log
+    const client = await Client.findById(updated.clientId);
+    
+    // Check if payment status changed
+    if (original.status !== 'paid' && updated.status === 'paid') {
+      await logActivity(
+        req.user.userId,
+        'payment_received',
+        `Payment received for invoice ${updated.invoiceNumber}`,
+        'invoice',
+        updated._id,
+        {
+          invoiceNumber: updated.invoiceNumber,
+          clientName: client?.name,
+          amount: updated.total,
+          currency: updated.currency
+        }
+      );
+    } else {
+      await logActivity(
+        req.user.userId,
+        'invoice_updated',
+        `Invoice ${updated.invoiceNumber} updated`,
+        'invoice',
+        updated._id,
+        {
+          invoiceNumber: updated.invoiceNumber,
+          clientName: client?.name,
+          amount: updated.total,
+          currency: updated.currency,
+          status: updated.status
+        }
+      );
+    }
+    
+    res.json(updated);
+  } catch (error) {
+    console.error('Update invoice error:', error);
+    res.status(500).json({ error: 'Failed to update invoice' });
+  }
 });
 
 router.delete('/:id', async (req, res) => {

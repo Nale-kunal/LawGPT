@@ -10,10 +10,27 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 
+interface DashboardNotifications {
+  alerts: Alert[];
+  urgentCases: any[];
+  overdueInvoices: any[];
+  todaysHearings: any[];
+  tomorrowsHearings: any[];
+  summary: {
+    totalUnread: number;
+    urgentCount: number;
+    overdueCount: number;
+    todayHearings: number;
+    tomorrowHearings: number;
+  };
+}
+
 export const AlertManager = () => {
   const { cases, alerts, addAlert, markAlertAsRead, deleteAlert } = useLegalData();
   const [showCreateAlert, setShowCreateAlert] = useState(false);
   const [isActionBusy, setIsActionBusy] = useState(false);
+  const [notifications, setNotifications] = useState<DashboardNotifications | null>(null);
+  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
   // Form state for creating alerts
@@ -24,7 +41,27 @@ export const AlertManager = () => {
     alertTime: ''
   });
 
-  // Removed auto-generation to avoid duplicate/regression behavior. Consider backend scheduler if needed.
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch('/api/dashboard/notifications', { credentials: 'include' });
+        if (response.ok) {
+          const data = await response.json();
+          setNotifications(data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch notifications:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchNotifications();
+    // Refresh every 5 minutes
+    const interval = setInterval(fetchNotifications, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleCreateAlert = () => {
     if (!alertForm.caseId || !alertForm.message || !alertForm.alertTime) {
@@ -78,10 +115,33 @@ export const AlertManager = () => {
     }
   };
 
-  const unreadAlerts = alerts.filter(alert => !alert.isRead);
-  const recentAlerts = [...alerts]
+  const unreadAlerts = notifications?.alerts.filter(alert => !alert.isRead) || alerts.filter(alert => !alert.isRead);
+  const recentAlerts = notifications?.alerts || [...alerts]
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     .slice(0, 10);
+
+  const formatDate = (date: string | Date) => {
+    if (!date) return 'No date';
+    const dateObj = new Date(date);
+    if (isNaN(dateObj.getTime())) return 'Invalid date';
+    return dateObj.toLocaleDateString('en-IN', {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  const getUrgencyBadge = (priority: string) => {
+    switch (priority) {
+      case 'urgent':
+        return <Badge variant="destructive">Urgent</Badge>;
+      case 'high':
+        return <Badge variant="secondary">High</Badge>;
+      default:
+        return null;
+    }
+  };
 
   return (
     <Card className="shadow-elevated lg:sticky lg:top-4">
@@ -183,102 +243,247 @@ export const AlertManager = () => {
         </div>
         
         <CardDescription>
-          Manage notifications and reminders for your cases
+          {loading ? 'Loading notifications...' : 
+            notifications ? 
+              `${notifications.summary.todayHearings} today, ${notifications.summary.tomorrowHearings} tomorrow, ${notifications.summary.urgentCount} urgent` :
+              'Manage notifications and reminders for your cases'
+          }
         </CardDescription>
       </CardHeader>
       <CardContent className="pt-3">
         <div className="space-y-3 max-h-80 overflow-y-auto pr-2">
-          {recentAlerts.length > 0 ? (
-            recentAlerts.map((alert) => {
-              const associatedCase = cases.find(c => c.id === alert.caseId);
-              const isUpcoming = new Date(alert.alertTime) > new Date();
-              
-              return (
-                <div 
-                  key={alert.id} 
-                  className={`p-3 rounded-lg border transition-colors overflow-hidden ${
-                    alert.isRead ? 'bg-muted/30' : 'bg-primary/5 border-primary/20'
-                  }`}
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-start gap-3 flex-1 min-w-0">
-                      {getAlertIcon(alert.type)}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <p className="text-sm font-medium break-words truncate">{alert.message}</p>
-                          <Badge variant={getAlertBadgeColor(alert.type)}>
-                            {alert.type}
-                          </Badge>
-                          {!alert.isRead && (
-                            <Badge variant="destructive" className="text-xs">New</Badge>
-                          )}
-                        </div>
-                        
-                        <div className="text-xs text-muted-foreground space-y-1">
-                          <p>
-                            {isUpcoming ? 'Scheduled for: ' : 'Alert time: '}
-                            {new Date(alert.alertTime).toLocaleString('en-IN')}
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+            </div>
+          ) : (
+            <>
+              {/* Today's Hearings */}
+              {notifications?.todaysHearings && notifications.todaysHearings.length > 0 && (
+                <div className="space-y-2">
+                  <h4 className="text-sm font-semibold text-destructive flex items-center gap-2">
+                    <Clock className="h-4 w-4" />
+                    Today's Hearings ({notifications.todaysHearings.length})
+                  </h4>
+                  {notifications.todaysHearings.map((hearing: any) => (
+                    <div key={`today-${hearing._id}`} className="p-2 rounded-lg bg-destructive/5 border border-destructive/20">
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <p className="text-sm font-medium">{hearing.caseNumber || 'No case number'}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {hearing.clientName || 'No client'} {hearing.courtName ? `• ${hearing.courtName}` : ''}
                           </p>
-                          {associatedCase && (
-                            <p>Case: {associatedCase.caseNumber} - {associatedCase.clientName}</p>
-                          )}
+                          <p className="text-xs text-muted-foreground">
+                            {hearing.hearingTime || 'Time TBD'}
+                          </p>
                         </div>
+                        {getUrgencyBadge(hearing.priority)}
                       </div>
                     </div>
-                    
-                    <div className="flex gap-1">
-                      {!alert.isRead && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={async () => { if (isActionBusy) return; setIsActionBusy(true); await markAlertAsRead(alert.id); setIsActionBusy(false); }}
-                          disabled={isActionBusy}
-                        >
-                          <CheckCircle className="h-4 w-4" />
-                        </Button>
-                      )}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={async () => { if (isActionBusy) return; setIsActionBusy(true); await deleteAlert(alert.id); setIsActionBusy(false); }}
-                        disabled={isActionBusy}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
+                  ))}
                 </div>
-              );
-            })
-          ) : (
-            <div className="text-center py-8 text-muted-foreground">
-              <Bell className="h-12 w-12 mx-auto mb-2 opacity-50" />
-              <p className="text-sm">No alerts yet</p>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="mt-2"
-                onClick={() => setShowCreateAlert(true)}
-              >
-                <Plus className="mr-2 h-3 w-3" />
-                Create First Alert
-              </Button>
-            </div>
+              )}
+
+              {/* Tomorrow's Hearings */}
+              {notifications?.tomorrowsHearings && notifications.tomorrowsHearings.length > 0 && (
+                <div className="space-y-2">
+                  <h4 className="text-sm font-semibold text-warning flex items-center gap-2">
+                    <Calendar className="h-4 w-4" />
+                    Tomorrow's Hearings ({notifications.tomorrowsHearings.length})
+                  </h4>
+                  {notifications.tomorrowsHearings.map((hearing: any) => (
+                    <div key={`tomorrow-${hearing._id}`} className="p-2 rounded-lg bg-warning/5 border border-warning/20">
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <p className="text-sm font-medium">{hearing.caseNumber || 'No case number'}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {hearing.clientName || 'No client'} {hearing.courtName ? `• ${hearing.courtName}` : ''}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {hearing.hearingTime || 'Time TBD'}
+                          </p>
+                        </div>
+                        {getUrgencyBadge(hearing.priority)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Urgent Cases (only showing cases NOT in today/tomorrow to avoid duplicates) */}
+              {notifications?.urgentCases && notifications.urgentCases.length > 0 && (
+                <div className="space-y-2">
+                  <h4 className="text-sm font-semibold text-destructive flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4" />
+                    Other Urgent Cases ({notifications.urgentCases.length})
+                  </h4>
+                  {notifications.urgentCases.slice(0, 3).map((case_: any) => (
+                    <div key={`urgent-${case_._id}`} className="p-2 rounded-lg bg-destructive/5 border border-destructive/20">
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <p className="text-sm font-medium">{case_.caseNumber || 'No case number'}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {case_.clientName || 'No client'}
+                          </p>
+                          {case_.hearingDate && (
+                            <p className="text-xs text-muted-foreground">
+                              Next hearing: {formatDate(case_.hearingDate)}
+                            </p>
+                          )}
+                        </div>
+                        <Badge variant="destructive">Urgent</Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Overdue Invoices */}
+              {notifications?.overdueInvoices && notifications.overdueInvoices.length > 0 && (
+                <div className="space-y-2">
+                  <h4 className="text-sm font-semibold text-destructive flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4" />
+                    Overdue Invoices ({notifications.overdueInvoices.length})
+                  </h4>
+                  {notifications.overdueInvoices.slice(0, 3).map((invoice: any) => (
+                    <div key={`overdue-${invoice._id}`} className="p-2 rounded-lg bg-destructive/5 border border-destructive/20">
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <p className="text-sm font-medium">{invoice.invoiceNumber}</p>
+                          <p className="text-xs text-muted-foreground">
+                            Due: {formatDate(invoice.dueDate)}
+                          </p>
+                          <p className="text-xs font-medium text-destructive">
+                            ₹{invoice.total.toLocaleString('en-IN')}
+                          </p>
+                        </div>
+                        <Badge variant="destructive">Overdue</Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Custom Alerts */}
+              {recentAlerts.length > 0 && (
+                <div className="space-y-2">
+                  <h4 className="text-sm font-semibold flex items-center gap-2">
+                    <Bell className="h-4 w-4" />
+                    Custom Alerts
+                  </h4>
+                  {recentAlerts.slice(0, 3).map((alert) => {
+                    const associatedCase = cases.find(c => c.id === alert.caseId);
+                    const isUpcoming = new Date(alert.alertTime) > new Date();
+                    
+                    return (
+                      <div 
+                        key={alert.id} 
+                        className={`p-3 rounded-lg border transition-colors overflow-hidden ${
+                          alert.isRead ? 'bg-muted/30' : 'bg-primary/5 border-primary/20'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-start gap-3 flex-1 min-w-0">
+                            {getAlertIcon(alert.type)}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <p className="text-sm font-medium break-words truncate">{alert.message}</p>
+                                <Badge variant={getAlertBadgeColor(alert.type)}>
+                                  {alert.type}
+                                </Badge>
+                                {!alert.isRead && (
+                                  <Badge variant="destructive" className="text-xs">New</Badge>
+                                )}
+                              </div>
+                              
+                              <div className="text-xs text-muted-foreground space-y-1">
+                                <p>
+                                  {isUpcoming ? 'Scheduled for: ' : 'Alert time: '}
+                                  {new Date(alert.alertTime).toLocaleString('en-IN')}
+                                </p>
+                                {associatedCase && (
+                                  <p>Case: {associatedCase.caseNumber} - {associatedCase.clientName}</p>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className="flex gap-1">
+                            {!alert.isRead && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={async () => { if (isActionBusy) return; setIsActionBusy(true); await markAlertAsRead(alert.id); setIsActionBusy(false); }}
+                                disabled={isActionBusy}
+                              >
+                                <CheckCircle className="h-4 w-4" />
+                              </Button>
+                            )}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={async () => { if (isActionBusy) return; setIsActionBusy(true); await deleteAlert(alert.id); setIsActionBusy(false); }}
+                              disabled={isActionBusy}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* No notifications state */}
+              {(!notifications || (
+                notifications.todaysHearings.length === 0 &&
+                notifications.tomorrowsHearings.length === 0 &&
+                notifications.urgentCases.length === 0 &&
+                notifications.overdueInvoices.length === 0 &&
+                recentAlerts.length === 0
+              )) && (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Bell className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">No urgent notifications</p>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="mt-2"
+                    onClick={() => setShowCreateAlert(true)}
+                  >
+                    <Plus className="mr-2 h-3 w-3" />
+                    Create Alert
+                  </Button>
+                </div>
+              )}
+            </>
           )}
         </div>
 
-        {/* Alert Summary */}
+        {/* Notification Summary */}
         <div className="mt-6 pt-4 border-t">
           <div className="grid grid-cols-2 gap-4 text-center">
             <div>
-              <div className="text-2xl font-bold text-primary">{unreadAlerts.length}</div>
-              <p className="text-xs text-muted-foreground">Unread Alerts</p>
+              <div className="text-2xl font-bold text-destructive">
+                {notifications?.summary.todayHearings || 0}
+              </div>
+              <p className="text-xs text-muted-foreground">Today's Hearings</p>
             </div>
             <div>
-              <div className="text-2xl font-bold">{alerts.length}</div>
-              <p className="text-xs text-muted-foreground">Total Alerts</p>
+              <div className="text-2xl font-bold text-warning">
+                {notifications?.summary.urgentCount || 0}
+              </div>
+              <p className="text-xs text-muted-foreground">Urgent Cases</p>
             </div>
           </div>
+          {notifications?.summary.overdueCount > 0 && (
+            <div className="mt-2 text-center">
+              <div className="text-sm font-medium text-destructive">
+                {notifications.summary.overdueCount} overdue invoice{notifications.summary.overdueCount !== 1 ? 's' : ''}
+              </div>
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>

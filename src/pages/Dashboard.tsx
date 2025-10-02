@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -10,16 +11,86 @@ import {
   Gavel,
   TrendingUp,
   IndianRupee,
-  Plus
+  Plus,
+  Activity,
+  CheckCircle,
+  UserPlus,
+  Timer,
+  Receipt
 } from 'lucide-react';
 import { useLegalData } from '@/contexts/LegalDataContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { AlertManager } from '@/components/AlertManager';
 
+interface DashboardStats {
+  totalCases: number;
+  activeCases: number;
+  todaysCases: number;
+  urgentCases: number;
+  totalClients: number;
+  revenue: {
+    currentMonth: number;
+    growth: string;
+    invoiced: number;
+    billable: number;
+    billableHours: number;
+  };
+}
+
+interface Activity {
+  id: string;
+  type: string;
+  message: string;
+  timestamp: string;
+  metadata: any;
+}
+
 const Dashboard = () => {
   const { cases, clients, alerts } = useLegalData();
   const { user } = useAuth();
+  const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
+  const [recentActivity, setRecentActivity] = useState<Activity[]>([]);
+  const [loading, setLoading] = useState(true);
   
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        setLoading(true);
+        console.log('Fetching dashboard data...');
+        
+        const [statsRes, activityRes] = await Promise.all([
+          fetch('/api/dashboard/stats', { credentials: 'include' }),
+          fetch('/api/dashboard/activity', { credentials: 'include' })
+        ]);
+        
+        console.log('Stats response:', statsRes.ok, statsRes.status);
+        console.log('Activity response:', activityRes.ok, activityRes.status);
+        
+        if (statsRes.ok) {
+          const stats = await statsRes.json();
+          console.log('Stats data:', stats);
+          setDashboardStats(stats);
+        } else {
+          console.error('Stats API error:', await statsRes.text());
+        }
+        
+        if (activityRes.ok) {
+          const activity = await activityRes.json();
+          console.log('Activity data:', activity);
+          setRecentActivity(activity);
+        } else {
+          console.error('Activity API error:', await activityRes.text());
+        }
+      } catch (error) {
+        console.error('Failed to fetch dashboard data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, []);
+
   const todaysCases = cases.filter(c => {
     const today = new Date();
     const caseDate = new Date(c.hearingDate);
@@ -30,34 +101,99 @@ const Dashboard = () => {
   const activeCases = cases.filter(c => c.status === 'active');
   const unreadAlerts = alerts.filter(a => !a.isRead);
 
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      maximumFractionDigits: 0
+    }).format(amount);
+  };
+
+  const getActivityIcon = (type: string) => {
+    switch (type) {
+      case 'case_created':
+      case 'case_updated':
+        return <FileText className="h-4 w-4" />;
+      case 'client_registered':
+        return <UserPlus className="h-4 w-4" />;
+      case 'payment_received':
+        return <Receipt className="h-4 w-4" />;
+      case 'invoice_created':
+        return <IndianRupee className="h-4 w-4" />;
+      case 'time_logged':
+        return <Timer className="h-4 w-4" />;
+      default:
+        return <Activity className="h-4 w-4" />;
+    }
+  };
+
+  const getActivityColor = (type: string) => {
+    switch (type) {
+      case 'case_created':
+        return 'bg-success';
+      case 'case_updated':
+        return 'bg-primary';
+      case 'client_registered':
+        return 'bg-warning';
+      case 'payment_received':
+        return 'bg-success';
+      case 'invoice_created':
+        return 'bg-secondary';
+      case 'time_logged':
+        return 'bg-info';
+      default:
+        return 'bg-muted-foreground';
+    }
+  };
+
+  const formatTimeAgo = (timestamp: string) => {
+    const now = new Date();
+    const time = new Date(timestamp);
+    const diffInHours = Math.floor((now.getTime() - time.getTime()) / (1000 * 60 * 60));
+    
+    if (diffInHours < 1) {
+      const diffInMinutes = Math.floor((now.getTime() - time.getTime()) / (1000 * 60));
+      return `${diffInMinutes} minute${diffInMinutes !== 1 ? 's' : ''} ago`;
+    } else if (diffInHours < 24) {
+      return `${diffInHours} hour${diffInHours !== 1 ? 's' : ''} ago`;
+    } else {
+      const diffInDays = Math.floor(diffInHours / 24);
+      return `${diffInDays} day${diffInDays !== 1 ? 's' : ''} ago`;
+    }
+  };
+
   const stats = [
     {
       title: "Total Cases",
-      value: cases.length,
-      description: `${activeCases.length} active`,
+      value: dashboardStats?.totalCases ?? cases.length,
+      description: `${dashboardStats?.activeCases ?? activeCases.length} active`,
       icon: FileText,
       trend: "+12% from last month"
     },
     {
       title: "Clients",
-      value: clients.length,
+      value: dashboardStats?.totalClients ?? clients.length,
       description: "Total registered",
       icon: Users,
       trend: "+8% from last month"
     },
     {
       title: "Today's Hearings",
-      value: todaysCases.length,
+      value: dashboardStats?.todaysCases ?? todaysCases.length,
       description: "Scheduled for today",
       icon: Calendar,
-      trend: urgentCases.length > 0 ? `${urgentCases.length} urgent` : "No urgent cases"
+      trend: (dashboardStats?.urgentCases ?? urgentCases.length) > 0 ? `${dashboardStats?.urgentCases ?? urgentCases.length} urgent` : "No urgent cases"
     },
     {
       title: "Revenue This Month",
-      value: "₹2,45,000",
-      description: "Billing & payments",
+      value: dashboardStats?.revenue ? formatCurrency(dashboardStats.revenue.currentMonth) : "₹0",
+      description: dashboardStats?.revenue && dashboardStats.revenue.billableHours > 0 
+        ? `${dashboardStats.revenue.billableHours.toFixed(1)} billable hours` 
+        : "Billing & payments",
       icon: IndianRupee,
-      trend: "+15% from last month"
+      trend: dashboardStats?.revenue && dashboardStats.revenue.growth !== undefined
+        ? `${parseFloat(dashboardStats.revenue.growth) >= 0 ? '+' : ''}${dashboardStats.revenue.growth}% from last month`
+        : "No data for comparison"
     }
   ];
 
@@ -259,28 +395,42 @@ const Dashboard = () => {
               <CardDescription>Latest updates</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3 text-sm">
-                <div className="flex items-start gap-2">
-                  <div className="h-2 w-2 rounded-full bg-success mt-1.5 flex-shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm">Case CS/2024/001 hearing scheduled</p>
-                    <p className="text-xs text-muted-foreground">2 hours ago</p>
+              <div className="space-y-3 text-sm max-h-64 overflow-y-auto">
+                {loading ? (
+                  <div className="flex items-center justify-center py-4">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
                   </div>
-                </div>
-                <div className="flex items-start gap-2">
-                  <div className="h-2 w-2 rounded-full bg-warning mt-1.5 flex-shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm">New client registration</p>
-                    <p className="text-xs text-muted-foreground">5 hours ago</p>
+                ) : recentActivity.length > 0 ? (
+                  recentActivity.map((activity) => (
+                    <div key={activity.id} className="flex items-start gap-3">
+                      <div className={`p-1.5 rounded-full ${getActivityColor(activity.type)} text-white mt-0.5 flex-shrink-0`}>
+                        {getActivityIcon(activity.type)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium break-words">{activity.message}</p>
+                        <p className="text-xs text-muted-foreground">{formatTimeAgo(activity.timestamp)}</p>
+                        {activity.metadata && (
+                          <div className="text-xs text-muted-foreground mt-1">
+                            {activity.type === 'payment_received' && (
+                              <span>Amount: {formatCurrency(activity.metadata.amount)}</span>
+                            )}
+                            {activity.type === 'time_logged' && (
+                              <span>{activity.metadata.durationText || `${activity.metadata.duration}m`} • {activity.metadata.billable ? 'Billable' : 'Non-billable'}</span>
+                            )}
+                            {(activity.type === 'case_created' || activity.type === 'case_updated') && (
+                              <span>Priority: {activity.metadata.priority}</span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Activity className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">No recent activity</p>
                   </div>
-                </div>
-                <div className="flex items-start gap-2">
-                  <div className="h-2 w-2 rounded-full bg-primary mt-1.5 flex-shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm">Document uploaded for case</p>
-                    <p className="text-xs text-muted-foreground">1 day ago</p>
-                  </div>
-                </div>
+                )}
               </div>
             </CardContent>
           </Card>
