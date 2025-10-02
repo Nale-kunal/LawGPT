@@ -15,13 +15,39 @@ import {
   Eye,
   Trash2,
   FolderOpen,
+  Plus,
+  Calendar,
+  HardDrive,
+  Edit,
+  Share,
+  MoreVertical,
 } from 'lucide-react';
 import { useLegalData } from '@/contexts/LegalDataContext';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
-interface ApiFile { _id: string; name: string; mimetype: string; size: number; url: string; createdAt: string; folderId?: string; tags?: string[] }
-interface ApiFolder { _id: string; name: string; parentId?: string }
+interface ApiFile { 
+  _id: string; 
+  name: string; 
+  mimetype: string; 
+  size: number; 
+  url: string; 
+  createdAt: string; 
+  folderId?: string; 
+  tags?: string[];
+  ownerId: string;
+}
+
+interface ApiFolder { 
+  _id: string; 
+  name: string; 
+  parentId?: string;
+  ownerId: string;
+  createdAt: string;
+}
 
 type DocType = 'pdf' | 'doc' | 'docx' | 'image' | 'video' | 'audio' | 'other';
 
@@ -36,6 +62,11 @@ const Documents = () => {
   const [currentFolderId, setCurrentFolderId] = useState<string | undefined>(undefined);
   const [files, setFiles] = useState<ApiFile[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [showCreateFolderDialog, setShowCreateFolderDialog] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
+  const [selectedFile, setSelectedFile] = useState<ApiFile | null>(null);
+  const [showFileDetailsDialog, setShowFileDetailsDialog] = useState(false);
+  
   const backendUrl = (import.meta as any).env?.VITE_API_URL || 'http://localhost:5000';
 
   const detectType = (mimetype: string): DocType => {
@@ -51,17 +82,30 @@ const Documents = () => {
   const getFileIcon = (type: DocType) => {
     switch (type) {
       case 'pdf':
+        return <FileText className="h-8 w-8 text-red-500" />;
       case 'doc':
       case 'docx':
-        return <FileText className="h-8 w-8 text-destructive" />;
+        return <FileText className="h-8 w-8 text-blue-500" />;
       case 'image':
-        return <Image className="h-8 w-8 text-primary" />;
+        return <Image className="h-8 w-8 text-green-500" />;
       case 'video':
-        return <Video className="h-8 w-8 text-secondary" />;
+        return <Video className="h-8 w-8 text-purple-500" />;
       case 'audio':
-        return <Music className="h-8 w-8 text-accent" />;
+        return <Music className="h-8 w-8 text-orange-500" />;
       default:
-        return <File className="h-8 w-8 text-muted-foreground" />;
+        return <File className="h-8 w-8 text-gray-500" />;
+    }
+  };
+
+  const getTypeColor = (type: DocType) => {
+    switch (type) {
+      case 'pdf': return 'bg-red-100 text-red-800 border-red-200';
+      case 'doc':
+      case 'docx': return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'image': return 'bg-green-100 text-green-800 border-green-200';
+      case 'video': return 'bg-purple-100 text-purple-800 border-purple-200';
+      case 'audio': return 'bg-orange-100 text-orange-800 border-orange-200';
+      default: return 'bg-gray-100 text-gray-800 border-gray-200';
     }
   };
 
@@ -71,6 +115,16 @@ const Documents = () => {
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-IN', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   };
 
   const filteredFiles = useMemo(() => {
@@ -86,22 +140,41 @@ const Documents = () => {
     const input = document.createElement('input');
     input.type = 'file';
     input.multiple = true;
-    input.accept = '.pdf,.doc,.docx,.jpg,.jpeg,.png,.mp4,.mp3';
+    input.accept = '.pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.mp4,.mp3,.txt,.xlsx,.pptx';
 
     input.onchange = async (event) => {
       const f = (event.target as HTMLInputElement).files;
       if (!f || f.length === 0) return;
+      
       const form = new FormData();
       Array.from(f).forEach(file => form.append('files', file));
       if (currentFolderId) form.append('folderId', currentFolderId);
+      
       try {
         setIsLoading(true);
-        const res = await fetch('/api/documents/upload', { method: 'POST', credentials: 'include', body: form });
-        if (!res.ok) throw new Error('Upload failed');
+        const res = await fetch('/api/documents/upload', { 
+          method: 'POST', 
+          credentials: 'include', 
+          body: form 
+        });
+        
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => ({}));
+          throw new Error(errorData.error || 'Upload failed');
+        }
+        
         await loadFiles();
-        toast({ title: 'Files uploaded successfully' });
-      } catch {
-        toast({ title: 'Upload failed', variant: 'destructive' });
+        toast({ 
+          title: 'Upload Successful', 
+          description: `${f.length} file(s) uploaded successfully` 
+        });
+      } catch (error) {
+        console.error('Upload error:', error);
+        toast({ 
+          title: 'Upload Failed', 
+          description: error instanceof Error ? error.message : 'Failed to upload files',
+          variant: 'destructive' 
+        });
       } finally {
         setIsLoading(false);
       }
@@ -122,48 +195,70 @@ const Documents = () => {
   };
 
   const handleDelete = async (doc: ApiFile) => {
-    if (!confirm(`Delete ${doc.name}?`)) return;
+    if (!confirm(`Are you sure you want to delete "${doc.name}"?`)) return;
+    
     try {
       setIsLoading(true);
-      const res = await fetch(`/api/documents/files/${doc._id}`, { method: 'DELETE', credentials: 'include' });
-      if (!res.ok) throw new Error('Delete failed');
+      const res = await fetch(`/api/documents/files/${doc._id}`, { 
+        method: 'DELETE', 
+        credentials: 'include' 
+      });
+      
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Delete failed');
+      }
+      
       await loadFiles();
-      toast({ title: 'Document deleted' });
-    } catch {
-      toast({ title: 'Delete failed', variant: 'destructive' });
+      toast({ title: 'Document Deleted', description: `${doc.name} has been deleted` });
+    } catch (error) {
+      console.error('Delete error:', error);
+      toast({ 
+        title: 'Delete Failed', 
+        description: error instanceof Error ? error.message : 'Failed to delete document',
+        variant: 'destructive' 
+      });
     } finally {
       setIsLoading(false);
     }
   };
 
-  const printDocument = (doc: ApiFile) => {
-    const url = fileUrl(doc);
-    const type = detectType(doc.mimetype);
-    const w = window.open('', '_blank');
-    if (!w) return;
-    const safeUrl = url;
-    const content = type === 'image'
-      ? `<img src="${safeUrl}" style="max-width:100%;" onload="window.print();window.close();" />`
-      : `<iframe src="${safeUrl}" style="width:100%;height:100vh;border:0;" onload="setTimeout(()=>{window.print();window.close();},300);"></iframe>`;
-    w.document.write(`<html><head><title>${doc.name}</title></head><body style="margin:0">${content}</body></html>`);
-    w.document.close();
-  };
-
   const loadFolders = async () => {
-    const res = await fetch('/api/documents/folders', { credentials: 'include' });
-    if (res.ok) {
-      const data = await res.json();
-      setFolders(data.folders);
+    try {
+      const res = await fetch('/api/documents/folders', { credentials: 'include' });
+      if (res.ok) {
+        const data = await res.json();
+        setFolders(data.folders || []);
+      } else {
+        console.error('Failed to load folders');
+        setFolders([]);
+      }
+    } catch (error) {
+      console.error('Load folders error:', error);
+      setFolders([]);
     }
   };
 
   const loadFiles = async () => {
-    if (!currentFolderId) { setFiles([]); return; }
-    const q = `?folderId=${currentFolderId}`;
-    const res = await fetch(`/api/documents/files${q}`, { credentials: 'include' });
-    if (res.ok) {
-      const data = await res.json();
-      setFiles(data.files);
+    try {
+      if (!currentFolderId) { 
+        setFiles([]); 
+        return; 
+      }
+      
+      const q = `?folderId=${currentFolderId}`;
+      const res = await fetch(`/api/documents/files${q}`, { credentials: 'include' });
+      
+      if (res.ok) {
+        const data = await res.json();
+        setFiles(data.files || []);
+      } else {
+        console.error('Failed to load files');
+        setFiles([]);
+      }
+    } catch (error) {
+      console.error('Load files error:', error);
+      setFiles([]);
     }
   };
 
@@ -171,30 +266,72 @@ const Documents = () => {
   useEffect(() => { loadFiles(); }, [currentFolderId]);
 
   const createFolder = async () => {
-    const name = prompt('Folder name');
-    if (!name) return;
-    const res = await fetch('/api/documents/folders', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
-      body: JSON.stringify({ name, parentId: currentFolderId })
-    });
-    if (res.ok) { await loadFolders(); toast({ title: 'Folder created' }); }
-  };
-
-  const renameFolder = async (folder: ApiFolder) => {
-    const name = prompt('New folder name', folder.name);
-    if (!name) return;
-    const res = await fetch(`/api/documents/folders/${folder._id}`, {
-      method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
-      body: JSON.stringify({ name })
-    });
-    if (res.ok) { await loadFolders(); toast({ title: 'Folder renamed' }); }
+    if (!newFolderName.trim()) {
+      toast({ title: 'Error', description: 'Folder name is required', variant: 'destructive' });
+      return;
+    }
+    
+    try {
+      const res = await fetch('/api/documents/folders', {
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' }, 
+        credentials: 'include',
+        body: JSON.stringify({ name: newFolderName.trim(), parentId: currentFolderId })
+      });
+      
+      if (res.ok) { 
+        await loadFolders(); 
+        setNewFolderName('');
+        setShowCreateFolderDialog(false);
+        toast({ title: 'Folder Created', description: `Folder "${newFolderName}" created successfully` }); 
+      } else {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to create folder');
+      }
+    } catch (error) {
+      console.error('Create folder error:', error);
+      toast({ 
+        title: 'Create Failed', 
+        description: error instanceof Error ? error.message : 'Failed to create folder',
+        variant: 'destructive' 
+      });
+    }
   };
 
   const deleteFolder = async (folder: ApiFolder) => {
-    if (!confirm(`Delete folder "${folder.name}" and its files?`)) return;
-    const res = await fetch(`/api/documents/folders/${folder._id}`, { method: 'DELETE', credentials: 'include' });
-    if (res.ok) { if (currentFolderId === folder._id) setCurrentFolderId(undefined); await loadFolders(); await loadFiles(); toast({ title: 'Folder deleted' }); }
+    if (!confirm(`Delete folder "${folder.name}" and all its contents?`)) return;
+    
+    try {
+      const res = await fetch(`/api/documents/folders/${folder._id}`, { 
+        method: 'DELETE', 
+        credentials: 'include' 
+      });
+      
+      if (res.ok) { 
+        if (currentFolderId === folder._id) setCurrentFolderId(undefined); 
+        await loadFolders(); 
+        await loadFiles(); 
+        toast({ title: 'Folder Deleted', description: `Folder "${folder.name}" deleted successfully` }); 
+      } else {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to delete folder');
+      }
+    } catch (error) {
+      console.error('Delete folder error:', error);
+      toast({ 
+        title: 'Delete Failed', 
+        description: error instanceof Error ? error.message : 'Failed to delete folder',
+        variant: 'destructive' 
+      });
+    }
   };
+
+  // Calculate statistics
+  const totalFiles = files.length;
+  const totalSize = files.reduce((sum, file) => sum + file.size, 0);
+  const imageFiles = files.filter(f => detectType(f.mimetype) === 'image').length;
+  const documentFiles = files.filter(f => ['pdf', 'doc', 'docx'].includes(detectType(f.mimetype))).length;
+  const videoFiles = files.filter(f => detectType(f.mimetype) === 'video').length;
 
   return (
     <div className="space-y-6">
@@ -202,22 +339,57 @@ const Documents = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Document Management</h1>
-          <p className="text-muted-foreground">Secure storage for all legal documents</p>
+          <p className="text-muted-foreground">
+            Secure storage and organization for all your legal documents
+          </p>
         </div>
         
         <div className="flex gap-2">
-          <Button variant="outline" onClick={handleFileUpload} disabled={isLoading}>
+          <Dialog open={showCreateFolderDialog} onOpenChange={setShowCreateFolderDialog}>
+            <DialogTrigger asChild>
+              <Button variant="outline" disabled={isLoading}>
+                <FolderOpen className="mr-2 h-4 w-4" />
+                New Folder
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Create New Folder</DialogTitle>
+                <DialogDescription>
+                  Enter a name for your new document folder
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="folderName">Folder Name</Label>
+                  <Input
+                    id="folderName"
+                    value={newFolderName}
+                    onChange={(e) => setNewFolderName(e.target.value)}
+                    placeholder="Enter folder name..."
+                    onKeyDown={(e) => e.key === 'Enter' && createFolder()}
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setShowCreateFolderDialog(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={createFolder} disabled={!newFolderName.trim()}>
+                  Create Folder
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+          
+          <Button onClick={handleFileUpload} disabled={isLoading}>
             <Upload className="mr-2 h-4 w-4" />
             Upload Documents
-          </Button>
-          <Button onClick={createFolder} disabled={isLoading}>
-            <FolderOpen className="mr-2 h-4 w-4" />
-            Create Folder
           </Button>
         </div>
       </div>
 
-      {/* Stats */}
+      {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card className="shadow-card-custom">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -225,40 +397,42 @@ const Documents = () => {
             <File className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{files.length}</div>
-            <p className="text-xs text-muted-foreground">{Math.round(files.reduce((s, f) => s + f.size, 0) / 1048576)} MB used</p>
+            <div className="text-2xl font-bold">{totalFiles}</div>
+            <p className="text-xs text-muted-foreground">
+              {formatFileSize(totalSize)} total size
+            </p>
           </CardContent>
         </Card>
 
         <Card className="shadow-card-custom">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Images</CardTitle>
-            <Image className="h-4 w-4 text-primary" />
+            <Image className="h-4 w-4 text-green-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{files.filter(f => detectType(f.mimetype) === 'image').length}</div>
+            <div className="text-2xl font-bold">{imageFiles}</div>
             <p className="text-xs text-muted-foreground">Image files</p>
           </CardContent>
         </Card>
 
         <Card className="shadow-card-custom">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">PDF/Docs</CardTitle>
-            <FileText className="h-4 w-4 text-secondary" />
+            <CardTitle className="text-sm font-medium">Documents</CardTitle>
+            <FileText className="h-4 w-4 text-blue-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{files.filter(f => ['pdf','doc','docx'].includes(detectType(f.mimetype))).length}</div>
-            <p className="text-xs text-muted-foreground">Documents</p>
+            <div className="text-2xl font-bold">{documentFiles}</div>
+            <p className="text-xs text-muted-foreground">PDF/DOC files</p>
           </CardContent>
         </Card>
 
         <Card className="shadow-card-custom">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Videos</CardTitle>
-            <Video className="h-4 w-4 text-accent" />
+            <Video className="h-4 w-4 text-purple-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{files.filter(f => detectType(f.mimetype) === 'video').length}</div>
+            <div className="text-2xl font-bold">{videoFiles}</div>
             <p className="text-xs text-muted-foreground">Video files</p>
           </CardContent>
         </Card>
@@ -274,7 +448,6 @@ const Documents = () => {
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap gap-4">
-            <div className="flex-1 min-w-64" />
             <div className="flex-1 min-w-64">
               <div className="relative">
                 <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -319,23 +492,80 @@ const Documents = () => {
         </CardContent>
       </Card>
 
-      {/* Folders Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {folders.map((f) => (
-          <Card key={f._id} className={"shadow-card-custom hover:shadow-elevated transition cursor-pointer " + (currentFolderId === f._id ? 'ring-2 ring-primary' : '')} onClick={() => setCurrentFolderId(f._id)}>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base flex items-center justify-between">
-                <span>{f.name}</span>
-                <span className="flex gap-1">
-                  <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); renameFolder(f); }} title="Rename">✎</Button>
-                  <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); deleteFolder(f); }} title="Delete">🗑</Button>
-                </span>
-              </CardTitle>
-              <CardDescription>Select to view documents</CardDescription>
-            </CardHeader>
-          </Card>
-        ))}
-      </div>
+      {/* Folders Section */}
+      {folders.length > 0 && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-semibold">Folders</h2>
+            <Badge variant="outline">{folders.length} folders</Badge>
+          </div>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {folders.map((folder) => (
+              <Card 
+                key={folder._id} 
+                className={`shadow-card-custom hover:shadow-elevated transition-all cursor-pointer ${
+                  currentFolderId === folder._id ? 'ring-2 ring-primary bg-primary/5' : ''
+                }`}
+                onClick={() => setCurrentFolderId(folder._id)}
+              >
+                <CardHeader className="pb-2">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center">
+                        <FolderOpen className="h-5 w-5" />
+                      </div>
+                      <div className="flex-1">
+                        <CardTitle className="text-sm line-clamp-1">{folder.name}</CardTitle>
+                        <CardDescription className="text-xs">
+                          Created {formatDate(folder.createdAt)}
+                        </CardDescription>
+                      </div>
+                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                        <Button variant="ghost" size="sm">
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setCurrentFolderId(folder._id); }}>
+                          <Eye className="mr-2 h-4 w-4" />
+                          Open Folder
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem 
+                          onClick={(e) => { e.stopPropagation(); deleteFolder(folder); }}
+                          className="text-destructive"
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Delete Folder
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </CardHeader>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Current Folder Info */}
+      {currentFolderId && (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <FolderOpen className="h-4 w-4" />
+          <span>Viewing folder: {folders.find(f => f._id === currentFolderId)?.name}</span>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => setCurrentFolderId(undefined)}
+            className="text-primary hover:text-primary/80"
+          >
+            View All Folders
+          </Button>
+        </div>
+      )}
 
       {/* Documents Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
@@ -345,36 +575,90 @@ const Documents = () => {
             <Card key={doc._id} className="shadow-card-custom hover:shadow-elevated transition-shadow">
               <CardHeader>
                 <div className="flex items-start justify-between">
-                  <div className="flex items-start gap-3">
-                    {getFileIcon(type)}
-                    <div className="flex-1">
-                      <CardTitle className="text-sm line-clamp-2">{doc.name}</CardTitle>
-                      <CardDescription>{formatFileSize(doc.size)}</CardDescription>
+                  <div className="flex items-start gap-3 flex-1">
+                    <div className="w-12 h-12 rounded-lg bg-gray-50 flex items-center justify-center flex-shrink-0">
+                      {getFileIcon(type)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <CardTitle className="text-sm line-clamp-2 break-words">{doc.name}</CardTitle>
+                      <CardDescription className="flex items-center gap-2 mt-1">
+                        <HardDrive className="h-3 w-3" />
+                        {formatFileSize(doc.size)}
+                      </CardDescription>
                     </div>
                   </div>
-                  <Badge variant="outline">{type}</Badge>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="sm">
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => window.open(fileUrl(doc), '_blank')}>
+                        <Eye className="mr-2 h-4 w-4" />
+                        View
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleDownload(doc)}>
+                        <Download className="mr-2 h-4 w-4" />
+                        Download
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => { setSelectedFile(doc); setShowFileDetailsDialog(true); }}>
+                        <Edit className="mr-2 h-4 w-4" />
+                        Details
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem 
+                        onClick={() => handleDelete(doc)}
+                        className="text-destructive"
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  <div className="text-xs text-muted-foreground">
-                    Uploaded: {new Date(doc.createdAt).toLocaleDateString('en-IN')}
+                  <div className="flex items-center justify-between">
+                    <Badge variant="outline" className={`text-xs ${getTypeColor(type)}`}>
+                      {type.toUpperCase()}
+                    </Badge>
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <Calendar className="h-3 w-3" />
+                      {formatDate(doc.createdAt)}
+                    </div>
                   </div>
+
+                  {doc.tags && doc.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {doc.tags.map((tag, index) => (
+                        <Badge key={index} variant="secondary" className="text-xs">
+                          {tag}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
-                 <div className="flex flex-wrap items-center gap-2 mt-4 pt-3 border-t">
-                  <Button size="sm" variant="outline" onClick={() => window.open(fileUrl(doc), '_blank', 'noopener') || undefined}>
+                <div className="flex gap-2 mt-4 pt-3 border-t">
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    className="flex-1"
+                    onClick={() => window.open(fileUrl(doc), '_blank')}
+                  >
                     <Eye className="mr-2 h-3 w-3" />
                     View
                   </Button>
-                  <Button size="sm" variant="outline" onClick={() => handleDownload(doc)}>
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    className="flex-1"
+                    onClick={() => handleDownload(doc)}
+                  >
                     <Download className="mr-2 h-3 w-3" />
                     Download
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => printDocument(doc)}>Print</Button>
-                  <Button size="sm" variant="outline" onClick={() => handleDelete(doc)}>
-                    <Trash2 className="mr-2 h-3 w-3" />
-                    Delete
                   </Button>
                 </div>
               </CardContent>
@@ -383,32 +667,106 @@ const Documents = () => {
         })}
       </div>
 
+      {/* Empty State */}
       {filteredFiles.length === 0 && (
-        <Card>
+        <Card className="shadow-card-custom">
           <CardContent className="text-center py-12">
-            <File className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-100 flex items-center justify-center">
+              <File className="h-8 w-8 text-gray-400" />
+            </div>
             <h3 className="text-lg font-semibold mb-2">No documents found</h3>
             <p className="text-muted-foreground mb-4">
-              {searchTerm || typeFilter !== 'all' ? 'No documents match your current filters.' : 'Start by uploading your first document.'}
+              {searchTerm || typeFilter !== 'all' 
+                ? 'No documents match your current filters.' 
+                : currentFolderId 
+                  ? 'This folder is empty. Upload your first document.'
+                  : 'Select a folder to view documents or create a new folder.'
+              }
             </p>
-            <Button onClick={handleFileUpload}>
-              <Upload className="mr-2 h-4 w-4" />
-              Upload Documents
-            </Button>
+            {currentFolderId && (
+              <Button onClick={handleFileUpload}>
+                <Upload className="mr-2 h-4 w-4" />
+                Upload Documents
+              </Button>
+            )}
           </CardContent>
         </Card>
       )}
 
-      {/* Upload Area */}
+      {/* Upload Drop Zone */}
       <Card className="shadow-card-custom border-2 border-dashed border-muted-foreground/25 hover:border-primary/50 transition-colors">
         <CardContent className="text-center py-8">
-          <Upload className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+          <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-primary/10 flex items-center justify-center">
+            <Upload className="h-6 w-6 text-primary" />
+          </div>
           <h3 className="text-lg font-semibold mb-2">Drop files here to upload</h3>
-          <p className="text-muted-foreground mb-4">Supports PDF, DOC, DOCX, images, videos, and audio files</p>
-          <Button onClick={handleFileUpload}>Choose Files to Upload</Button>
+          <p className="text-muted-foreground mb-4">
+            Supports PDF, DOC, DOCX, images, videos, and audio files
+          </p>
+          <Button onClick={handleFileUpload} disabled={isLoading}>
+            {isLoading ? 'Uploading...' : 'Choose Files to Upload'}
+          </Button>
           <p className="text-xs text-muted-foreground mt-2">Maximum file size: 50MB per file</p>
         </CardContent>
       </Card>
+
+      {/* File Details Dialog */}
+      <Dialog open={showFileDetailsDialog} onOpenChange={setShowFileDetailsDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Document Details</DialogTitle>
+            <DialogDescription>
+              View and manage document information
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedFile && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 rounded-lg bg-gray-50 flex items-center justify-center">
+                  {getFileIcon(detectType(selectedFile.mimetype))}
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-semibold text-lg">{selectedFile.name}</h3>
+                  <p className="text-muted-foreground">
+                    {formatFileSize(selectedFile.size)} • {detectType(selectedFile.mimetype).toUpperCase()}
+                  </p>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <Label className="text-muted-foreground">Upload Date</Label>
+                  <p className="font-medium">{formatDate(selectedFile.createdAt)}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">File Type</Label>
+                  <p className="font-medium">{selectedFile.mimetype}</p>
+                </div>
+              </div>
+              
+              <div className="flex gap-2 pt-4">
+                <Button 
+                  variant="outline" 
+                  onClick={() => window.open(fileUrl(selectedFile), '_blank')}
+                  className="flex-1"
+                >
+                  <Eye className="mr-2 h-4 w-4" />
+                  View File
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={() => handleDownload(selectedFile)}
+                  className="flex-1"
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  Download
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

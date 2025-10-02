@@ -66,6 +66,34 @@ export interface TimeEntry {
   billable: boolean;
 }
 
+export interface InvoiceItem {
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  amount: number;
+}
+
+export interface Invoice {
+  id: string;
+  clientId: string;
+  caseId?: string;
+  invoiceNumber: string;
+  issueDate: Date;
+  dueDate: Date;
+  status: 'draft' | 'sent' | 'paid' | 'overdue';
+  currency: string;
+  items: InvoiceItem[];
+  subtotal: number;
+  taxRate: number;
+  taxAmount: number;
+  discountAmount: number;
+  total: number;
+  notes?: string;
+  terms?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 interface LegalDataContextType {
   // Cases
   cases: Case[];
@@ -93,6 +121,13 @@ interface LegalDataContextType {
   // Time Entries
   timeEntries: TimeEntry[];
   addTimeEntry: (entry: Omit<TimeEntry, 'id'>) => void;
+
+  // Invoices
+  invoices: Invoice[];
+  createInvoice: (invoice: Omit<Invoice, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+  updateInvoice: (invoiceId: string, updates: Partial<Invoice>) => Promise<void>;
+  deleteInvoice: (invoiceId: string) => Promise<void>;
+  sendInvoice: (invoiceId: string, payload: { to?: string; subject?: string; message?: string }) => Promise<{ previewUrl?: string }>;
 }
 
 const LegalDataContext = createContext<LegalDataContextType | undefined>(undefined);
@@ -155,6 +190,7 @@ export const LegalDataProvider: React.FC<LegalDataProviderProps> = ({ children }
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [legalSections] = useState<LegalSection[]>(mockLegalSections);
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
 
   // Initial loads
   React.useEffect(() => {
@@ -164,11 +200,13 @@ export const LegalDataProvider: React.FC<LegalDataProviderProps> = ({ children }
       fetch('/api/clients', { credentials: 'include' }).then(r => r.ok ? r.json() : Promise.resolve([])),
       fetch('/api/alerts', { credentials: 'include' }).then(r => r.ok ? r.json() : Promise.resolve([])),
       fetch('/api/time-entries', { credentials: 'include' }).then(r => r.ok ? r.json() : Promise.resolve([])),
-    ]).then(([casesRes, clientsRes, alertsRes, timeEntriesRes]) => {
+      fetch('/api/invoices', { credentials: 'include' }).then(r => r.ok ? r.json() : Promise.resolve([])),
+    ]).then(([casesRes, clientsRes, alertsRes, timeEntriesRes, invoicesRes]) => {
       setCases(casesRes.map(mapCaseFromApi));
       setClients(clientsRes.map(mapClientFromApi));
       setAlerts(alertsRes.map(mapAlertFromApi));
       setTimeEntries(timeEntriesRes.map(mapTimeEntryFromApi));
+      setInvoices(invoicesRes.map(mapInvoiceFromApi));
     }).catch(() => {
       // Silently ignore for now; UI can still function
     });
@@ -268,6 +306,36 @@ export const LegalDataProvider: React.FC<LegalDataProviderProps> = ({ children }
     }
   };
 
+  // Invoices
+  const createInvoice = async (invoice: Omit<Invoice, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const payload = mapInvoiceToApi(invoice);
+    const res = await fetch('/api/invoices', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(payload) });
+    if (res.ok) {
+      const saved = await res.json();
+      setInvoices(prev => [mapInvoiceFromApi(saved), ...prev]);
+    }
+  };
+
+  const updateInvoice = async (invoiceId: string, updates: Partial<Invoice>) => {
+    const res = await fetch(`/api/invoices/${invoiceId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(mapInvoicePartialToApi(updates)) });
+    if (res.ok) {
+      const saved = await res.json();
+      setInvoices(prev => prev.map(i => i.id === invoiceId ? mapInvoiceFromApi(saved) : i));
+    }
+  };
+
+  const deleteInvoice = async (invoiceId: string) => {
+    const res = await fetch(`/api/invoices/${invoiceId}`, { method: 'DELETE', credentials: 'include' });
+    if (res.ok) setInvoices(prev => prev.filter(i => i.id !== invoiceId));
+  };
+
+  const sendInvoice = async (invoiceId: string, payload: { to?: string; subject?: string; message?: string }) => {
+    const res = await fetch(`/api/invoices/${invoiceId}/send`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(payload) });
+    if (!res.ok) throw new Error('Failed to send invoice');
+    const body = await res.json();
+    return { previewUrl: body.previewUrl } as { previewUrl?: string };
+  };
+
   const value = {
     cases,
     addCase,
@@ -285,7 +353,12 @@ export const LegalDataProvider: React.FC<LegalDataProviderProps> = ({ children }
     legalSections,
     searchLegalSections,
     timeEntries,
-    addTimeEntry
+    addTimeEntry,
+    invoices,
+    createInvoice,
+    updateInvoice,
+    deleteInvoice,
+    sendInvoice,
   };
 
   return (
@@ -358,4 +431,55 @@ function mapTimeEntryFromApi(raw: any): TimeEntry {
     date: raw.date ? new Date(raw.date) : new Date(),
     billable: !!raw.billable,
   } as TimeEntry;
+}
+
+function mapInvoiceFromApi(raw: any): Invoice {
+  return {
+    id: raw._id || raw.id,
+    clientId: raw.clientId,
+    caseId: raw.caseId,
+    invoiceNumber: raw.invoiceNumber,
+    issueDate: raw.issueDate ? new Date(raw.issueDate) : new Date(),
+    dueDate: raw.dueDate ? new Date(raw.dueDate) : new Date(),
+    status: raw.status,
+    currency: raw.currency || 'INR',
+    items: (raw.items || []).map((i: any) => ({ description: i.description, quantity: i.quantity, unitPrice: i.unitPrice, amount: i.amount })),
+    subtotal: raw.subtotal || 0,
+    taxRate: raw.taxRate || 0,
+    taxAmount: raw.taxAmount || 0,
+    discountAmount: raw.discountAmount || 0,
+    total: raw.total || 0,
+    notes: raw.notes,
+    terms: raw.terms,
+    createdAt: raw.createdAt ? new Date(raw.createdAt) : new Date(),
+    updatedAt: raw.updatedAt ? new Date(raw.updatedAt) : new Date(),
+  } as Invoice;
+}
+
+function mapInvoiceToApi(inv: Omit<Invoice, 'id' | 'createdAt' | 'updatedAt'>) {
+  return {
+    clientId: inv.clientId,
+    caseId: inv.caseId,
+    invoiceNumber: inv.invoiceNumber,
+    issueDate: inv.issueDate,
+    dueDate: inv.dueDate,
+    status: inv.status,
+    currency: inv.currency,
+    items: inv.items,
+    subtotal: inv.subtotal,
+    taxRate: inv.taxRate,
+    taxAmount: inv.taxAmount,
+    discountAmount: inv.discountAmount,
+    total: inv.total,
+    notes: inv.notes,
+    terms: inv.terms,
+  };
+}
+
+function mapInvoicePartialToApi(updates: Partial<Invoice>) {
+  const u: any = { ...updates };
+  if ('id' in u) delete u.id;
+  if (u.issueDate instanceof Date) u.issueDate = u.issueDate.toISOString();
+  if (u.dueDate instanceof Date) u.dueDate = u.dueDate.toISOString();
+  return u;
 }

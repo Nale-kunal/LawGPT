@@ -1,7 +1,11 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
   Calendar as CalendarIcon,
   Clock,
@@ -16,9 +20,20 @@ import { useLegalData, Case } from '@/contexts/LegalDataContext';
 import { cn } from '@/lib/utils';
 
 const Calendar = () => {
-  const { cases } = useLegalData();
+  const { cases, addCase, updateCase, deleteCase } = useLegalData();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingCase, setEditingCase] = useState<Case | null>(null);
+
+  // Form state
+  const [formCaseNumber, setFormCaseNumber] = useState('');
+  const [formClientName, setFormClientName] = useState('');
+  const [formCourtName, setFormCourtName] = useState('');
+  const [formJudgeName, setFormJudgeName] = useState('');
+  const [formHearingTime, setFormHearingTime] = useState('');
+  const [formPriority, setFormPriority] = useState<Case['priority']>('medium');
+  const [formDescription, setFormDescription] = useState('');
 
   // Get current month and year
   const currentMonth = currentDate.getMonth();
@@ -95,7 +110,7 @@ const Calendar = () => {
   };
 
   // Get selected date cases
-  const selectedDateCases = selectedDate ? getCasesForDate(selectedDate) : [];
+  const selectedDateCases = useMemo(() => (selectedDate ? getCasesForDate(selectedDate) : []), [selectedDate, cases]);
 
   const monthNames = [
     'January', 'February', 'March', 'April', 'May', 'June',
@@ -114,6 +129,69 @@ const Calendar = () => {
     }
   };
 
+  const openCreateModal = () => {
+    if (!selectedDate) setSelectedDate(new Date());
+    setEditingCase(null);
+    setFormCaseNumber('');
+    setFormClientName('');
+    setFormCourtName('');
+    setFormJudgeName('');
+    setFormHearingTime('');
+    setFormPriority('medium');
+    setFormDescription('');
+    setIsModalOpen(true);
+  };
+
+  const openEditModal = (c: Case) => {
+    setEditingCase(c);
+    setSelectedDate(c.hearingDate ? new Date(c.hearingDate) : new Date());
+    setFormCaseNumber(c.caseNumber || '');
+    setFormClientName(c.clientName || '');
+    setFormCourtName(c.courtName || '');
+    setFormJudgeName(c.judgeName || '');
+    setFormHearingTime(c.hearingTime || '');
+    setFormPriority(c.priority || 'medium');
+    setFormDescription(c.description || '');
+    setIsModalOpen(true);
+  };
+
+  const resetModal = () => {
+    setIsModalOpen(false);
+    setEditingCase(null);
+  };
+
+  const handleSave = async () => {
+    if (!selectedDate) return;
+    const basePayload = {
+      caseNumber: formCaseNumber.trim(),
+      clientName: formClientName.trim(),
+      opposingParty: '',
+      courtName: formCourtName.trim(),
+      judgeName: formJudgeName.trim(),
+      hearingDate: selectedDate,
+      hearingTime: formHearingTime.trim(),
+      status: 'active' as const,
+      priority: formPriority,
+      caseType: '',
+      description: formDescription.trim(),
+      nextHearing: undefined as unknown as Date,
+      documents: [] as string[],
+      notes: '',
+      alerts: [],
+    };
+
+    if (editingCase) {
+      await updateCase(editingCase.id, basePayload as Partial<Case>);
+    } else {
+      await addCase(basePayload as Omit<Case, 'id' | 'createdAt' | 'updatedAt'>);
+    }
+    resetModal();
+  };
+
+  const handleDelete = async (c: Case) => {
+    await deleteCase(c.id);
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -122,7 +200,7 @@ const Calendar = () => {
           <h1 className="text-3xl font-bold">Legal Calendar</h1>
           <p className="text-muted-foreground">Court hearings and important dates</p>
         </div>
-        <Button>
+        <Button onClick={openCreateModal} disabled={!selectedDate}>
           <Plus className="mr-2 h-4 w-4" />
           Schedule Hearing
         </Button>
@@ -273,6 +351,10 @@ const Calendar = () => {
                         {case_.description}
                       </p>
                     )}
+                    <div className="flex items-center gap-2 pt-1">
+                      <Button variant="outline" size="sm" onClick={() => openEditModal(case_)}>Edit</Button>
+                      <Button variant="destructive" size="sm" onClick={() => handleDelete(case_)}>Delete</Button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -280,7 +362,7 @@ const Calendar = () => {
               <div className="text-center py-8 text-muted-foreground">
                 <CalendarIcon className="h-12 w-12 mx-auto mb-2 opacity-50" />
                 <p className="text-sm">No hearings scheduled for this date</p>
-                <Button variant="outline" size="sm" className="mt-2">
+                <Button variant="outline" size="sm" className="mt-2" onClick={openCreateModal}>
                   <Plus className="mr-2 h-3 w-3" />
                   Schedule Hearing
                 </Button>
@@ -355,6 +437,67 @@ const Calendar = () => {
           </div>
         </CardContent>
       </Card>
+      {/* Modal */}
+      <Dialog open={isModalOpen} onOpenChange={(open) => { if (!open) resetModal(); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{editingCase ? 'Edit Hearing' : 'Schedule Hearing'}</DialogTitle>
+            <DialogDescription>
+              {selectedDate ? selectedDate.toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : ''}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-2">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="caseNumber">Case Number</Label>
+                <Input id="caseNumber" value={formCaseNumber} onChange={(e) => setFormCaseNumber(e.target.value)} placeholder="e.g., C/123/2025" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="clientName">Client Name</Label>
+                <Input id="clientName" value={formClientName} onChange={(e) => setFormClientName(e.target.value)} placeholder="Client" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="courtName">Court</Label>
+                <Input id="courtName" value={formCourtName} onChange={(e) => setFormCourtName(e.target.value)} placeholder="Court name" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="judgeName">Judge</Label>
+                <Input id="judgeName" value={formJudgeName} onChange={(e) => setFormJudgeName(e.target.value)} placeholder="Judge name" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="hearingTime">Time</Label>
+                <Input id="hearingTime" type="time" value={formHearingTime} onChange={(e) => setFormHearingTime(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>Priority</Label>
+                <Select value={formPriority} onValueChange={(v) => setFormPriority(v as Case['priority'])}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select priority" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="low">Low</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="high">High</SelectItem>
+                    <SelectItem value="urgent">Urgent</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="description">Description</Label>
+              <Input id="description" value={formDescription} onChange={(e) => setFormDescription(e.target.value)} placeholder="Optional details" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={resetModal}>Cancel</Button>
+            <Button onClick={handleSave} disabled={!formCaseNumber.trim() || !formClientName.trim()}>Save</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

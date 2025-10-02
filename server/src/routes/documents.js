@@ -26,90 +26,211 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 
-// Folders CRUD
-router.get('/folders', async (req, res) => {
-  const ownerId = req.user?.userId;
-  const criteria = ownerId ? { ownerId } : {};
-  const folders = await Folder.find(criteria).sort({ createdAt: -1 });
-  res.json({ folders });
-});
-
-router.post('/folders', async (req, res) => {
-  const { name, parentId } = req.body;
-  const folder = await Folder.create({ name, parentId: parentId || undefined, ownerId: req.user?.userId });
-  res.status(201).json({ folder });
-});
-
-router.put('/folders/:id', async (req, res) => {
-  const { name } = req.body;
-  const match = req.user?.userId ? { _id: req.params.id, ownerId: req.user.userId } : { _id: req.params.id };
-  const folder = await Folder.findOneAndUpdate(match, { name }, { new: true });
-  if (!folder) return res.status(404).json({ error: 'Folder not found' });
-  res.json({ folder });
-});
-
-router.delete('/folders/:id', async (req, res) => {
-  const folderId = req.params.id;
-  const match = req.user?.userId ? { _id: folderId, ownerId: req.user.userId } : { _id: folderId };
-  const folder = await Folder.findOne(match);
-  if (!folder) return res.status(404).json({ error: 'Folder not found' });
-  // Delete documents in the folder
-  const docMatch = req.user?.userId ? { folderId, ownerId: req.user.userId } : { folderId };
-  const docs = await Document.find(docMatch);
-  for (const doc of docs) {
-    try { fs.unlinkSync(path.join(uploadsDir, path.basename(doc.url))); } catch {}
-    await doc.deleteOne();
+// Folders CRUD - All routes require authentication
+router.get('/folders', requireAuth, async (req, res) => {
+  try {
+    const ownerId = req.user.userId;
+    if (!ownerId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+    
+    const folders = await Folder.find({ ownerId }).sort({ createdAt: -1 });
+    res.json({ folders });
+  } catch (error) {
+    console.error('Get folders error:', error);
+    res.status(500).json({ error: 'Failed to fetch folders' });
   }
-  await folder.deleteOne();
-  res.json({ ok: true });
 });
 
-// Documents CRUD
-router.get('/files', async (req, res) => {
-  const { folderId } = req.query;
-  const criteria = req.user?.userId ? { ownerId: req.user.userId } : {};
-  if (folderId) criteria.folderId = folderId;
-  const files = await Document.find(criteria).sort({ createdAt: -1 });
-  res.json({ files });
-});
-
-router.post('/upload', upload.array('files'), async (req, res) => {
-  const { folderId } = req.body;
-  const saved = [];
-  for (const file of req.files || []) {
-    const url = `/uploads/${file.filename}`;
-    const doc = await Document.create({
-      name: file.originalname,
-      mimetype: file.mimetype,
-      size: file.size,
-      url,
-      folderId: folderId || undefined,
-      ownerId: req.user?.userId,
+router.post('/folders', requireAuth, async (req, res) => {
+  try {
+    const { name, parentId } = req.body;
+    const ownerId = req.user.userId;
+    
+    if (!name || !ownerId) {
+      return res.status(400).json({ error: 'Folder name and user authentication required' });
+    }
+    
+    const folder = await Folder.create({ 
+      name: name.trim(), 
+      parentId: parentId || undefined, 
+      ownerId 
     });
-    saved.push(doc);
+    res.status(201).json({ folder });
+  } catch (error) {
+    console.error('Create folder error:', error);
+    res.status(500).json({ error: 'Failed to create folder' });
   }
-  res.status(201).json({ files: saved });
 });
 
-router.put('/files/:id', async (req, res) => {
-  const { name, tags, folderId } = req.body;
-  const match = req.user?.userId ? { _id: req.params.id, ownerId: req.user.userId } : { _id: req.params.id };
-  const doc = await Document.findOneAndUpdate(
-    match,
-    { name, tags, folderId },
-    { new: true }
-  );
-  if (!doc) return res.status(404).json({ error: 'File not found' });
-  res.json({ file: doc });
+router.put('/folders/:id', requireAuth, async (req, res) => {
+  try {
+    const { name } = req.body;
+    const ownerId = req.user.userId;
+    
+    if (!name || !ownerId) {
+      return res.status(400).json({ error: 'Folder name and user authentication required' });
+    }
+    
+    const folder = await Folder.findOneAndUpdate(
+      { _id: req.params.id, ownerId }, 
+      { name: name.trim() }, 
+      { new: true }
+    );
+    
+    if (!folder) {
+      return res.status(404).json({ error: 'Folder not found or access denied' });
+    }
+    
+    res.json({ folder });
+  } catch (error) {
+    console.error('Update folder error:', error);
+    res.status(500).json({ error: 'Failed to update folder' });
+  }
 });
 
-router.delete('/files/:id', async (req, res) => {
-  const match = req.user?.userId ? { _id: req.params.id, ownerId: req.user.userId } : { _id: req.params.id };
-  const doc = await Document.findOne(match);
-  if (!doc) return res.status(404).json({ error: 'File not found' });
-  try { fs.unlinkSync(path.join(uploadsDir, path.basename(doc.url))); } catch {}
-  await doc.deleteOne();
-  res.json({ ok: true });
+router.delete('/folders/:id', requireAuth, async (req, res) => {
+  try {
+    const folderId = req.params.id;
+    const ownerId = req.user.userId;
+    
+    if (!ownerId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+    
+    const folder = await Folder.findOne({ _id: folderId, ownerId });
+    if (!folder) {
+      return res.status(404).json({ error: 'Folder not found or access denied' });
+    }
+    
+    // Delete documents in the folder (only user's documents)
+    const docs = await Document.find({ folderId, ownerId });
+    for (const doc of docs) {
+      try { 
+        fs.unlinkSync(path.join(uploadsDir, path.basename(doc.url))); 
+      } catch (e) {
+        console.error('Failed to delete file:', e);
+      }
+      await doc.deleteOne();
+    }
+    
+    await folder.deleteOne();
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Delete folder error:', error);
+    res.status(500).json({ error: 'Failed to delete folder' });
+  }
+});
+
+// Documents CRUD - All routes require authentication
+router.get('/files', requireAuth, async (req, res) => {
+  try {
+    const { folderId } = req.query;
+    const ownerId = req.user.userId;
+    
+    if (!ownerId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+    
+    const criteria = { ownerId };
+    if (folderId) {
+      criteria.folderId = folderId;
+    }
+    
+    const files = await Document.find(criteria).sort({ createdAt: -1 });
+    res.json({ files });
+  } catch (error) {
+    console.error('Get files error:', error);
+    res.status(500).json({ error: 'Failed to fetch files' });
+  }
+});
+
+router.post('/upload', requireAuth, upload.array('files'), async (req, res) => {
+  try {
+    const { folderId } = req.body;
+    const ownerId = req.user.userId;
+    
+    if (!ownerId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+    
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ error: 'No files provided' });
+    }
+    
+    const saved = [];
+    for (const file of req.files) {
+      const url = `/uploads/${file.filename}`;
+      const doc = await Document.create({
+        name: file.originalname,
+        mimetype: file.mimetype,
+        size: file.size,
+        url,
+        folderId: folderId || undefined,
+        ownerId,
+      });
+      saved.push(doc);
+    }
+    
+    res.status(201).json({ files: saved });
+  } catch (error) {
+    console.error('Upload files error:', error);
+    res.status(500).json({ error: 'Failed to upload files' });
+  }
+});
+
+router.put('/files/:id', requireAuth, async (req, res) => {
+  try {
+    const { name, tags, folderId } = req.body;
+    const ownerId = req.user.userId;
+    
+    if (!ownerId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+    
+    const doc = await Document.findOneAndUpdate(
+      { _id: req.params.id, ownerId },
+      { name: name?.trim(), tags, folderId },
+      { new: true }
+    );
+    
+    if (!doc) {
+      return res.status(404).json({ error: 'File not found or access denied' });
+    }
+    
+    res.json({ file: doc });
+  } catch (error) {
+    console.error('Update file error:', error);
+    res.status(500).json({ error: 'Failed to update file' });
+  }
+});
+
+router.delete('/files/:id', requireAuth, async (req, res) => {
+  try {
+    const ownerId = req.user.userId;
+    
+    if (!ownerId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+    
+    const doc = await Document.findOne({ _id: req.params.id, ownerId });
+    if (!doc) {
+      return res.status(404).json({ error: 'File not found or access denied' });
+    }
+    
+    // Delete physical file
+    try { 
+      fs.unlinkSync(path.join(uploadsDir, path.basename(doc.url))); 
+    } catch (e) {
+      console.error('Failed to delete physical file:', e);
+    }
+    
+    await doc.deleteOne();
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Delete file error:', error);
+    res.status(500).json({ error: 'Failed to delete file' });
+  }
 });
 
 export default router;

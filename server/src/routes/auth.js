@@ -10,31 +10,103 @@ const router = express.Router();
 router.post('/register', async (req, res) => {
   try {
     const { name, email, password, role, barNumber, firm } = req.body;
-    const existing = await User.findOne({ email });
-    if (existing) return res.status(409).json({ error: 'Email already registered' });
+    
+    // Validate required fields
+    if (!name || !email || !password) {
+      return res.status(400).json({ error: 'Name, email, and password are required' });
+    }
+    
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ error: 'Invalid email format' });
+    }
+    
+    // Validate password strength
+    if (password.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters long' });
+    }
+    
+    // Check if user already exists
+    const existing = await User.findOne({ email: email.toLowerCase() });
+    if (existing) {
+      return res.status(409).json({ error: 'Email already registered' });
+    }
+    
+    // Create new user
     const user = await User.create({
-      name,
-      email,
+      name: name.trim(),
+      email: email.toLowerCase(),
       role: role || 'lawyer',
-      barNumber,
-      firm,
-      passwordHash: User.hashPassword(password || 'changeme'),
+      barNumber: barNumber?.trim(),
+      firm: firm?.trim(),
+      passwordHash: User.hashPassword(password),
     });
-    return res.status(201).json({ id: user._id });
+    
+    // Generate token for immediate login
+    const token = jwt.sign(
+      { userId: user._id, email: user.email, role: user.role }, 
+      process.env.JWT_SECRET || 'dev_secret', 
+      { expiresIn: '7d' }
+    );
+    
+    res.cookie('token', token, { 
+      httpOnly: true, 
+      sameSite: 'lax', 
+      secure: process.env.NODE_ENV === 'production', 
+      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+    });
+    
+    return res.status(201).json({
+      message: 'Registration successful',
+      token,
+      user: {
+        id: String(user._id),
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        barNumber: user.barNumber,
+        firm: user.firm,
+      }
+    });
   } catch (e) {
-    return res.status(500).json({ error: 'Failed to register' });
+    console.error('Registration error:', e);
+    return res.status(500).json({ error: 'Failed to register user' });
   }
 });
 
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
-    const user = await User.findOne({ email });
-    if (!user) return res.status(401).json({ error: 'Invalid credentials' });
-    const ok = await user.verifyPassword(password || '');
-    if (!ok) return res.status(401).json({ error: 'Invalid credentials' });
-    const token = jwt.sign({ userId: user._id, email: user.email, role: user.role }, process.env.JWT_SECRET || 'dev_secret', { expiresIn: '7d' });
-    res.cookie('token', token, { httpOnly: true, sameSite: 'lax', secure: false, maxAge: 7*24*3600*1000 });
+    
+    // Validate input
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password are required' });
+    }
+    
+    const user = await User.findOne({ email: email.toLowerCase() });
+    if (!user) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+    
+    const isValidPassword = await user.verifyPassword(password);
+    if (!isValidPassword) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+    
+    const token = jwt.sign(
+      { userId: user._id, email: user.email, role: user.role }, 
+      process.env.JWT_SECRET || 'dev_secret', 
+      { expiresIn: '7d' }
+    );
+    
+    res.cookie('token', token, { 
+      httpOnly: true, 
+      sameSite: 'lax', 
+      secure: process.env.NODE_ENV === 'production', 
+      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+    });
+    
     return res.json({
       token,
       user: {
@@ -47,12 +119,24 @@ router.post('/login', async (req, res) => {
       }
     });
   } catch (e) {
+    console.error('Login error:', e);
     return res.status(500).json({ error: 'Login failed' });
   }
 });
 
 router.post('/logout', (req, res) => {
+  // Clear the token cookie with all possible configurations
+  res.clearCookie('token', {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    path: '/'
+  });
+  
+  // Also clear with different path configurations to be safe
+  res.clearCookie('token', { path: '/' });
   res.clearCookie('token');
+  
   return res.json({ ok: true });
 });
 
@@ -116,18 +200,40 @@ router.post('/reset', async (req, res) => {
 });
 
 router.get('/me', requireAuth, async (req, res) => {
-  const user = await User.findById(req.user.userId);
-  if (!user) return res.status(401).json({ error: 'Unauthorized' });
-  return res.json({
-    user: {
-      id: String(user._id),
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      barNumber: user.barNumber,
-      firm: user.firm,
+  try {
+    const user = await User.findById(req.user.userId);
+    if (!user) {
+      // Clear any invalid cookies
+      res.clearCookie('token', {
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
+        path: '/'
+      });
+      return res.status(401).json({ error: 'User not found' });
     }
-  });
+    
+    return res.json({
+      user: {
+        id: String(user._id),
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        barNumber: user.barNumber,
+        firm: user.firm,
+      }
+    });
+  } catch (error) {
+    console.error('Auth check error:', error);
+    // Clear any invalid cookies
+    res.clearCookie('token', {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/'
+    });
+    return res.status(401).json({ error: 'Authentication failed' });
+  }
 });
 
 export default router;

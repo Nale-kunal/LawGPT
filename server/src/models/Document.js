@@ -6,7 +6,7 @@ const documentSchema = new mongoose.Schema({
   size: { type: Number, required: true },
   url: { type: String, required: true },
   folderId: { type: mongoose.Schema.Types.ObjectId, ref: 'Folder' },
-  ownerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  ownerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   tags: [{ type: String }],
 }, { timestamps: true });
 
