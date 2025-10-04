@@ -23,6 +23,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { CaseConflictChecker } from '@/components/CaseConflictChecker';
 import { CaseSummaryGenerator } from '@/components/CaseSummaryGenerator';
+import { CaseDetailsPopup } from '@/components/CaseDetailsPopup';
 
 const Cases = () => {
   const { cases, addCase, updateCase, deleteCase } = useLegalData();
@@ -31,6 +32,8 @@ const Cases = () => {
   const [priorityFilter, setPriorityFilter] = useState('all');
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [selectedCase, setSelectedCase] = useState<Case | null>(null);
+  const [showCaseDetails, setShowCaseDetails] = useState(false);
+  const [caseForDetails, setCaseForDetails] = useState<Case | null>(null);
 
   // Form state for adding/editing cases
   const [formData, setFormData] = useState({
@@ -373,7 +376,14 @@ const Cases = () => {
       {/* Cases Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
         {filteredCases.map((case_) => (
-          <Card key={case_.id} className="shadow-card-custom hover:shadow-elevated transition-shadow">
+          <Card 
+            key={case_.id} 
+            className="shadow-card-custom hover:shadow-elevated transition-shadow cursor-pointer"
+            onClick={() => {
+              setCaseForDetails(case_);
+              setShowCaseDetails(true);
+            }}
+          >
             <CardHeader>
               <div className="flex items-start justify-between">
                 <div>
@@ -429,7 +439,8 @@ const Cases = () => {
                 <Button 
                   size="sm" 
                   variant="outline"
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.stopPropagation();
                     setSelectedCase(case_);
                     setFormData({
                       caseNumber: case_.caseNumber,
@@ -453,7 +464,8 @@ const Cases = () => {
                 <Button 
                   size="sm" 
                   variant="outline"
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.stopPropagation();
                     if (confirm('Are you sure you want to delete this case?')) {
                       deleteCase(case_.id);
                     }
@@ -493,6 +505,16 @@ const Cases = () => {
       {selectedCase && (
         <CaseSummaryGenerator caseId={selectedCase.id} />
       )}
+
+      {/* Case Details Popup */}
+      <CaseDetailsPopup
+        case_={caseForDetails}
+        isOpen={showCaseDetails}
+        onClose={() => {
+          setShowCaseDetails(false);
+          setCaseForDetails(null);
+        }}
+      />
     </div>
   );
 };

@@ -12,6 +12,7 @@ import timeEntryRoutes from './src/routes/timeEntries.js';
 import legalSectionRoutes from './src/routes/legalSections.js';
 import documentsRoutes from './src/routes/documents.js';
 import invoiceRoutes from './src/routes/invoices.js';
+import hearingRoutes from './src/routes/hearings.js';
 import dashboardRoutes from './src/routes/dashboard.js';
 import path from 'path';
 
@@ -36,6 +37,7 @@ app.use('/api/time-entries', timeEntryRoutes);
 app.use('/api/legal-sections', legalSectionRoutes);
 app.use('/api/documents', documentsRoutes);
 app.use('/api/invoices', invoiceRoutes);
+app.use('/api/hearings', hearingRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 
 // Serve uploads

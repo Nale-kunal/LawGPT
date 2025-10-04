@@ -20,7 +20,7 @@ import { useLegalData, Case } from '@/contexts/LegalDataContext';
 import { cn } from '@/lib/utils';
 
 const Calendar = () => {
-  const { cases, addCase, updateCase, deleteCase } = useLegalData();
+  const { cases, addCase, updateCase, deleteCase, hearings } = useLegalData();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -58,13 +58,38 @@ const Calendar = () => {
     calendarDays.push(day);
   }
 
-  // Get cases for a specific date
+  // Get cases and hearings for a specific date
   const getCasesForDate = (date: Date) => {
-    return cases.filter(case_ => {
+    const casesForDate = cases.filter(case_ => {
       if (!case_.hearingDate) return false;
       const caseDate = new Date(case_.hearingDate);
       return caseDate.toDateString() === date.toDateString();
     });
+
+    // Also include hearings with next hearing dates
+    const hearingsForDate = hearings.filter(hearing => {
+      if (!hearing.nextHearingDate) return false;
+      const hearingDate = new Date(hearing.nextHearingDate);
+      return hearingDate.toDateString() === date.toDateString();
+    });
+
+    // Combine cases and hearings, marking hearings with a special property
+    const combinedEvents = [
+      ...casesForDate.map(case_ => ({ ...case_, isHearing: false, eventType: 'case' })),
+      ...hearingsForDate.map(hearing => ({ 
+        ...hearing, 
+        isHearing: true, 
+        eventType: 'next_hearing',
+        caseNumber: hearing.caseId, // Use caseId as caseNumber for hearings
+        clientName: 'Next Hearing', // Generic name for hearings
+        courtName: hearing.courtName,
+        judgeName: hearing.judgeName,
+        hearingTime: hearing.nextHearingTime,
+        hearingDate: hearing.nextHearingDate
+      }))
+    ];
+
+    return combinedEvents;
   };
 
   // Check for conflicts (same court, overlapping times)
@@ -264,15 +289,17 @@ const Calendar = () => {
                     {casesForDay.length > 0 && (
                       <div className="text-xs">
                         <div className="flex flex-wrap gap-1 mt-1">
-                          {casesForDay.slice(0, 2).map((case_, idx) => (
+                          {casesForDay.slice(0, 2).map((event, idx) => (
                             <div
                               key={idx}
                               className={cn(
                                 "w-2 h-2 rounded-full",
-                                case_.priority === 'urgent' ? 'bg-destructive' :
-                                case_.priority === 'high' ? 'bg-warning' :
-                                case_.priority === 'medium' ? 'bg-primary' : 'bg-muted-foreground'
+                                event.isHearing ? 'bg-blue-500' :
+                                event.priority === 'urgent' ? 'bg-destructive' :
+                                event.priority === 'high' ? 'bg-warning' :
+                                event.priority === 'medium' ? 'bg-primary' : 'bg-muted-foreground'
                               )}
+                              title={event.isHearing ? 'Next Hearing' : `${event.priority} priority case`}
                             />
                           ))}
                           {casesForDay.length > 2 && (
@@ -316,45 +343,74 @@ const Calendar = () => {
           <CardContent>
             {selectedDateCases.length > 0 ? (
               <div className="space-y-4">
-                {selectedDateCases.map((case_) => (
-                  <div key={case_.id} className="p-3 border rounded-lg space-y-2">
+                {selectedDateCases.map((event, index) => (
+                  <div key={event.id || index} className={`p-3 border rounded-lg space-y-2 ${
+                    event.isHearing ? 'border-blue-200 bg-blue-50' : ''
+                  }`}>
                     <div className="flex items-center justify-between">
-                      <h4 className="font-medium text-sm">{case_.caseNumber}</h4>
-                      <Badge variant="outline" className={getPriorityColor(case_.priority)}>
-                        {case_.priority}
-                      </Badge>
+                      <h4 className="font-medium text-sm">
+                        {event.isHearing ? `Next Hearing - ${event.caseNumber}` : event.caseNumber}
+                      </h4>
+                      <div className="flex items-center gap-2">
+                        {event.isHearing ? (
+                          <Badge variant="outline" className="bg-blue-100 text-blue-800">
+                            Next Hearing
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className={getPriorityColor(event.priority)}>
+                            {event.priority}
+                          </Badge>
+                        )}
+                      </div>
                     </div>
                     
                     <div className="space-y-1 text-xs text-muted-foreground">
                       <div className="flex items-center gap-2">
                         <User className="h-3 w-3" />
-                        <span>{case_.clientName}</span>
+                        <span>{event.isHearing ? 'Scheduled Next Hearing' : event.clientName}</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <MapPin className="h-3 w-3" />
-                        <span>{case_.courtName}</span>
+                        <span>{event.courtName}</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <Clock className="h-3 w-3" />
-                        <span>{case_.hearingTime || 'Time not specified'}</span>
+                        <span>{event.hearingTime || 'Time not specified'}</span>
                       </div>
-                      {case_.judgeName && (
+                      {event.judgeName && (
                         <div className="flex items-center gap-2">
                           <FileText className="h-3 w-3" />
-                          <span>{case_.judgeName}</span>
+                          <span>{event.judgeName}</span>
+                        </div>
+                      )}
+                      {event.isHearing && (
+                        <div className="flex items-center gap-2 text-blue-600">
+                          <CalendarIcon className="h-3 w-3" />
+                          <span>Next Hearing Date</span>
                         </div>
                       )}
                     </div>
                     
-                    {case_.description && (
+                    {event.description && (
                       <p className="text-xs text-muted-foreground line-clamp-2">
-                        {case_.description}
+                        {event.description}
                       </p>
                     )}
-                    <div className="flex items-center gap-2 pt-1">
-                      <Button variant="outline" size="sm" onClick={() => openEditModal(case_)}>Edit</Button>
-                      <Button variant="destructive" size="sm" onClick={() => handleDelete(case_)}>Delete</Button>
-                    </div>
+                    
+                    {!event.isHearing && (
+                      <div className="flex items-center gap-2 pt-1">
+                        <Button variant="outline" size="sm" onClick={() => openEditModal(event)}>Edit</Button>
+                        <Button variant="destructive" size="sm" onClick={() => handleDelete(event)}>Delete</Button>
+                      </div>
+                    )}
+                    
+                    {event.isHearing && (
+                      <div className="flex items-center gap-2 pt-1">
+                        <Button variant="outline" size="sm" disabled>
+                          Next Hearing (View in Case Details)
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

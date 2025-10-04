@@ -66,6 +66,37 @@ export interface TimeEntry {
   billable: boolean;
 }
 
+export interface Hearing {
+  id: string;
+  caseId: string;
+  hearingDate: Date;
+  hearingTime?: string;
+  courtName: string;
+  judgeName?: string;
+  hearingType: 'first_hearing' | 'interim_hearing' | 'final_hearing' | 'evidence_hearing' | 'argument_hearing' | 'judgment_hearing' | 'other';
+  status: 'scheduled' | 'completed' | 'adjourned' | 'cancelled';
+  purpose?: string;
+  courtInstructions?: string;
+  documentsToBring: string[];
+  proceedings?: string;
+  nextHearingDate?: Date;
+  nextHearingTime?: string;
+  adjournmentReason?: string;
+  attendance: {
+    clientPresent: boolean;
+    opposingPartyPresent: boolean;
+    witnessesPresent: string[];
+  };
+  orders: Array<{
+    orderType: string;
+    orderDetails: string;
+    orderDate: Date;
+  }>;
+  notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface InvoiceItem {
   description: string;
   quantity: number;
@@ -121,6 +152,13 @@ interface LegalDataContextType {
   // Time Entries
   timeEntries: TimeEntry[];
   addTimeEntry: (entry: Omit<TimeEntry, 'id'>) => void;
+
+  // Hearings
+  hearings: Hearing[];
+  addHearing: (hearing: Omit<Hearing, 'id' | 'createdAt' | 'updatedAt'>) => void;
+  updateHearing: (hearingId: string, updates: Partial<Hearing>) => void;
+  deleteHearing: (hearingId: string) => void;
+  getHearingsByCaseId: (caseId: string) => Hearing[];
 
   // Invoices
   invoices: Invoice[];
@@ -190,6 +228,7 @@ export const LegalDataProvider: React.FC<LegalDataProviderProps> = ({ children }
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [legalSections] = useState<LegalSection[]>(mockLegalSections);
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
+  const [hearings, setHearings] = useState<Hearing[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
 
   // Initial loads
@@ -200,14 +239,23 @@ export const LegalDataProvider: React.FC<LegalDataProviderProps> = ({ children }
       fetch('/api/clients', { credentials: 'include' }).then(r => r.ok ? r.json() : Promise.resolve([])),
       fetch('/api/alerts', { credentials: 'include' }).then(r => r.ok ? r.json() : Promise.resolve([])),
       fetch('/api/time-entries', { credentials: 'include' }).then(r => r.ok ? r.json() : Promise.resolve([])),
+      fetch('/api/hearings', { credentials: 'include' }).then(r => r.ok ? r.json() : Promise.resolve([])),
       fetch('/api/invoices', { credentials: 'include' }).then(r => r.ok ? r.json() : Promise.resolve([])),
-    ]).then(([casesRes, clientsRes, alertsRes, timeEntriesRes, invoicesRes]) => {
+    ]).then(([casesRes, clientsRes, alertsRes, timeEntriesRes, hearingsRes, invoicesRes]) => {
+      console.log('LegalDataContext: Initial data loaded');
+      console.log('LegalDataContext: Cases:', casesRes.length);
+      console.log('LegalDataContext: Clients:', clientsRes.length);
+      console.log('LegalDataContext: Hearings:', hearingsRes.length, hearingsRes);
       setCases(casesRes.map(mapCaseFromApi));
       setClients(clientsRes.map(mapClientFromApi));
       setAlerts(alertsRes.map(mapAlertFromApi));
       setTimeEntries(timeEntriesRes.map(mapTimeEntryFromApi));
+      const mappedHearings = hearingsRes.map(mapHearingFromApi);
+      console.log('LegalDataContext: Mapped hearings:', mappedHearings.length, mappedHearings);
+      setHearings(mappedHearings);
       setInvoices(invoicesRes.map(mapInvoiceFromApi));
-    }).catch(() => {
+    }).catch((error) => {
+      console.error('LegalDataContext: Error loading initial data:', error);
       // Silently ignore for now; UI can still function
     });
   }, []);
@@ -306,6 +354,107 @@ export const LegalDataProvider: React.FC<LegalDataProviderProps> = ({ children }
     }
   };
 
+  // Hearing management functions
+  const addHearing = async (hearing: Omit<Hearing, 'id' | 'createdAt' | 'updatedAt'>) => {
+    console.log('LegalDataContext: Adding hearing:', hearing);
+    const res = await fetch('/api/hearings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(hearing) });
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({ error: 'Failed to create hearing' }));
+      throw new Error(errorData.error || 'Failed to create hearing');
+    }
+    const saved = await res.json();
+    console.log('LegalDataContext: Hearing saved from API:', saved);
+    const mappedHearing = mapHearingFromApi(saved);
+    console.log('LegalDataContext: Mapped hearing:', mappedHearing);
+    setHearings(prev => {
+      const newHearings = [...prev, mappedHearing];
+      console.log('LegalDataContext: Updated hearings state:', newHearings.length, 'hearings');
+      return newHearings;
+    });
+    return saved;
+  };
+
+  const updateHearing = async (hearingId: string, updates: Partial<Hearing>) => {
+    console.log('LegalDataContext: Updating hearing:', hearingId, 'with updates:', updates);
+    
+    try {
+      const res = await fetch(`/api/hearings/${hearingId}`, { 
+        method: 'PUT', 
+        headers: { 'Content-Type': 'application/json' }, 
+        credentials: 'include', 
+        body: JSON.stringify(updates) 
+      });
+      
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: 'Failed to update hearing' }));
+        throw new Error(errorData.error || 'Failed to update hearing');
+      }
+      
+      const saved = await res.json();
+      console.log('LegalDataContext: Hearing updated from API:', saved);
+      const mappedHearing = mapHearingFromApi(saved);
+      console.log('LegalDataContext: Mapped updated hearing:', mappedHearing);
+      
+      // BULLETPROOF UPDATE: Always ensure the hearing exists in state
+      setHearings(prev => {
+        console.log('LegalDataContext: Current hearings before update:', prev.length, prev.map(h => ({ id: h.id, caseId: h.caseId })));
+        
+        // Find the hearing to update by multiple criteria
+        const hearingIndex = prev.findIndex(h => {
+          const idMatch = h.id === hearingId || 
+                         h.id === hearingId.toString() || 
+                         h.id === saved._id || 
+                         h.id === saved.id;
+          const caseIdMatch = h.caseId === saved.caseId || h.caseId === saved.caseId?.toString();
+          console.log('LegalDataContext: Checking hearing:', h.id, 'against', hearingId, 'idMatch:', idMatch, 'caseIdMatch:', caseIdMatch);
+          return idMatch || (caseIdMatch && h.hearingDate === saved.hearingDate);
+        });
+        
+        console.log('LegalDataContext: Found hearing at index:', hearingIndex);
+        
+        if (hearingIndex !== -1) {
+          // Update existing hearing
+          const updatedHearings = [...prev];
+          updatedHearings[hearingIndex] = mappedHearing;
+          console.log('LegalDataContext: Updated hearing at index:', hearingIndex, 'new hearing:', mappedHearing);
+          return updatedHearings;
+        } else {
+          // Hearing not found, add it to the list
+          console.log('LegalDataContext: Hearing not found, adding new hearing');
+          const newHearings = [...prev, mappedHearing];
+          console.log('LegalDataContext: Added hearing to list, total hearings:', newHearings.length);
+          return newHearings;
+        }
+      });
+      
+      return saved;
+    } catch (error) {
+      console.error('LegalDataContext: Update hearing error:', error);
+      throw error;
+    }
+  };
+
+  const deleteHearing = async (hearingId: string) => {
+    const res = await fetch(`/api/hearings/${hearingId}`, { method: 'DELETE', credentials: 'include' });
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({ error: 'Failed to delete hearing' }));
+      throw new Error(errorData.error || 'Failed to delete hearing');
+    }
+    setHearings(prev => prev.filter(h => h.id !== hearingId));
+  };
+
+  const getHearingsByCaseId = (caseId: string) => {
+    console.log('LegalDataContext: Getting hearings for case:', caseId);
+    console.log('LegalDataContext: All hearings:', hearings.length, hearings);
+    const caseHearings = hearings.filter(h => {
+      const match = h.caseId === caseId || h.caseId === caseId.toString();
+      console.log('LegalDataContext: Comparing hearing caseId:', h.caseId, 'with:', caseId, 'match:', match);
+      return match;
+    });
+    console.log('LegalDataContext: Filtered hearings for case:', caseHearings.length, caseHearings);
+    return caseHearings;
+  };
+
   // Invoices
   const createInvoice = async (invoice: Omit<Invoice, 'id' | 'createdAt' | 'updatedAt'>) => {
     const payload = mapInvoiceToApi(invoice);
@@ -354,6 +503,11 @@ export const LegalDataProvider: React.FC<LegalDataProviderProps> = ({ children }
     searchLegalSections,
     timeEntries,
     addTimeEntry,
+    hearings,
+    addHearing,
+    updateHearing,
+    deleteHearing,
+    getHearingsByCaseId,
     invoices,
     createInvoice,
     updateInvoice,
@@ -431,6 +585,39 @@ function mapTimeEntryFromApi(raw: any): TimeEntry {
     date: raw.date ? new Date(raw.date) : new Date(),
     billable: !!raw.billable,
   } as TimeEntry;
+}
+
+function mapHearingFromApi(raw: any): Hearing {
+  return {
+    id: raw._id || raw.id,
+    caseId: raw.caseId,
+    hearingDate: raw.hearingDate ? new Date(raw.hearingDate) : new Date(),
+    hearingTime: raw.hearingTime,
+    courtName: raw.courtName,
+    judgeName: raw.judgeName,
+    hearingType: raw.hearingType,
+    status: raw.status,
+    purpose: raw.purpose,
+    courtInstructions: raw.courtInstructions,
+    documentsToBring: raw.documentsToBring || [],
+    proceedings: raw.proceedings,
+    nextHearingDate: raw.nextHearingDate ? new Date(raw.nextHearingDate) : undefined,
+    nextHearingTime: raw.nextHearingTime,
+    adjournmentReason: raw.adjournmentReason,
+    attendance: {
+      clientPresent: !!raw.attendance?.clientPresent,
+      opposingPartyPresent: !!raw.attendance?.opposingPartyPresent,
+      witnessesPresent: raw.attendance?.witnessesPresent || [],
+    },
+    orders: (raw.orders || []).map((order: any) => ({
+      orderType: order.orderType,
+      orderDetails: order.orderDetails,
+      orderDate: order.orderDate ? new Date(order.orderDate) : new Date(),
+    })),
+    notes: raw.notes,
+    createdAt: raw.createdAt ? new Date(raw.createdAt) : new Date(),
+    updatedAt: raw.updatedAt ? new Date(raw.updatedAt) : new Date(),
+  } as Hearing;
 }
 
 function mapInvoiceFromApi(raw: any): Invoice {

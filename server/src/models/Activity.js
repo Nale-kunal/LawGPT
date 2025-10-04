@@ -10,13 +10,14 @@ const activitySchema = new mongoose.Schema({
       'client_registered', 'client_updated',
       'invoice_created', 'invoice_sent', 'payment_received',
       'time_logged', 'document_uploaded',
-      'hearing_scheduled', 'alert_created'
+      'hearing_created', 'hearing_updated', 'hearing_deleted', 'hearing_scheduled', 
+      'alert_created'
     ]
   },
   message: { type: String, required: true },
   entityType: { 
     type: String, 
-    enum: ['case', 'client', 'invoice', 'time_entry', 'document', 'alert'],
+    enum: ['case', 'client', 'invoice', 'time_entry', 'document', 'alert', 'hearing'],
     required: true
   },
   entityId: { type: mongoose.Schema.Types.ObjectId, required: true },
