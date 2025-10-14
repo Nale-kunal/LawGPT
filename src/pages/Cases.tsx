@@ -26,7 +26,7 @@ import { CaseSummaryGenerator } from '@/components/CaseSummaryGenerator';
 import { CaseDetailsPopup } from '@/components/CaseDetailsPopup';
 
 const Cases = () => {
-  const { cases, addCase, updateCase, deleteCase } = useLegalData();
+  const { cases, clients, addCase, updateCase, deleteCase, addClient } = useLegalData();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [priorityFilter, setPriorityFilter] = useState('all');
@@ -68,7 +68,7 @@ const Cases = () => {
     });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (selectedCase) {
@@ -80,13 +80,47 @@ const Cases = () => {
         alerts: selectedCase.alerts
       });
     } else {
+      // Check if client exists, if not create a new client
+      const existingClient = clients.find(client => 
+        client.name.toLowerCase() === formData.clientName.toLowerCase()
+      );
+      
+      if (!existingClient) {
+        try {
+          console.log('Creating new client:', formData.clientName);
+          // Create new client with minimal information
+          await addClient({
+            name: formData.clientName,
+            email: 'pending@example.com', // Temporary email, will be updated later
+            phone: '0000000000', // Temporary phone, will be updated later
+            address: '', // Will be filled later in client interface
+            panNumber: '', // Will be filled later in client interface
+            aadharNumber: '', // Will be filled later in client interface
+            cases: [],
+            documents: [],
+            notes: `Auto-created when adding case: ${formData.caseNumber}. Please update email and phone details.`
+          });
+          console.log('Client created successfully');
+        } catch (error) {
+          console.error('Error creating client:', error);
+        }
+      } else {
+        console.log('Client already exists:', formData.clientName);
+      }
+      
       // Add new case
-      addCase({
-        ...formData,
-        hearingDate: new Date(formData.hearingDate),
-        documents: [],
-        alerts: []
-      });
+      try {
+        console.log('Creating new case:', formData.caseNumber);
+        await addCase({
+          ...formData,
+          hearingDate: new Date(formData.hearingDate),
+          documents: [],
+          alerts: []
+        });
+        console.log('Case created successfully');
+      } catch (error) {
+        console.error('Error creating case:', error);
+      }
     }
     
     setShowAddDialog(false);
@@ -154,7 +188,7 @@ const Cases = () => {
               Add New Case
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{selectedCase ? 'Edit Case' : 'Add New Case'}</DialogTitle>
               <DialogDescription>
@@ -499,7 +533,28 @@ const Cases = () => {
       )}
 
       {/* AI Conflict Checker */}
-      <CaseConflictChecker currentCase={selectedCase} />
+      <CaseConflictChecker 
+        currentCase={selectedCase || (showAddDialog ? {
+          id: 'temp',
+          caseNumber: formData.caseNumber,
+          clientName: formData.clientName,
+          opposingParty: formData.opposingParty,
+          courtName: formData.courtName,
+          judgeName: formData.judgeName,
+          hearingDate: formData.hearingDate ? new Date(formData.hearingDate) : new Date(),
+          hearingTime: formData.hearingTime,
+          status: formData.status,
+          priority: formData.priority,
+          caseType: formData.caseType,
+          description: formData.description,
+          nextHearing: undefined,
+          documents: [],
+          notes: formData.notes,
+          alerts: [],
+          createdAt: new Date(),
+          updatedAt: new Date()
+        } as Case : undefined)}
+      />
 
       {/* AI Case Summary Generator */}
       {selectedCase && (

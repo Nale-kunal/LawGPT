@@ -17,14 +17,18 @@ import {
   Plus
 } from 'lucide-react';
 import { useLegalData, Case } from '@/contexts/LegalDataContext';
+import { CaseDetailsPopup } from '@/components/CaseDetailsPopup';
+import { CaseConflictChecker } from '@/components/CaseConflictChecker';
 import { cn } from '@/lib/utils';
 
 const Calendar = () => {
-  const { cases, addCase, updateCase, deleteCase, hearings } = useLegalData();
+  const { cases, clients, addCase, updateCase, deleteCase, addClient, hearings } = useLegalData();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCase, setEditingCase] = useState<Case | null>(null);
+  const [showCaseDetails, setShowCaseDetails] = useState(false);
+  const [caseForDetails, setCaseForDetails] = useState<Case | null>(null);
 
   // Form state
   const [formCaseNumber, setFormCaseNumber] = useState('');
@@ -76,17 +80,24 @@ const Calendar = () => {
     // Combine cases and hearings, marking hearings with a special property
     const combinedEvents = [
       ...casesForDate.map(case_ => ({ ...case_, isHearing: false, eventType: 'case' })),
-      ...hearingsForDate.map(hearing => ({ 
-        ...hearing, 
-        isHearing: true, 
-        eventType: 'next_hearing',
-        caseNumber: hearing.caseId, // Use caseId as caseNumber for hearings
-        clientName: 'Next Hearing', // Generic name for hearings
-        courtName: hearing.courtName,
-        judgeName: hearing.judgeName,
-        hearingTime: hearing.nextHearingTime,
-        hearingDate: hearing.nextHearingDate
-      }))
+      ...hearingsForDate.map(hearing => {
+        // Use populated case data if available, otherwise fallback to finding the case
+        const caseData = (hearing as any).populatedCase || 
+          (hearing.caseId && typeof hearing.caseId === 'object' ? hearing.caseId : null);
+        
+        return { 
+          ...hearing, 
+          isHearing: true, 
+          eventType: 'next_hearing',
+          caseNumber: caseData?.caseNumber || `Case ${hearing.caseId}`,
+          clientName: caseData?.clientName || 'Client Name Not Found',
+          courtName: hearing.courtName,
+          judgeName: hearing.judgeName,
+          hearingTime: hearing.nextHearingTime,
+          hearingDate: hearing.nextHearingDate,
+          description: hearing.purpose || hearing.courtInstructions || 'Next hearing scheduled'
+        };
+      })
     ];
 
     return combinedEvents;
@@ -208,13 +219,69 @@ const Calendar = () => {
     if (editingCase) {
       await updateCase(editingCase.id, basePayload as Partial<Case>);
     } else {
-      await addCase(basePayload as Omit<Case, 'id' | 'createdAt' | 'updatedAt'>);
+      // Check if client exists, if not create a new client
+      const existingClient = clients.find(client => 
+        client.name.toLowerCase() === formClientName.trim().toLowerCase()
+      );
+      
+      if (!existingClient) {
+        // Create new client with minimal information
+        await addClient({
+          name: formClientName.trim(),
+          email: 'pending@example.com', // Temporary email, will be updated later
+          phone: '0000000000', // Temporary phone, will be updated later
+          address: '', // Will be filled later in client interface
+          panNumber: '', // Will be filled later in client interface
+          aadharNumber: '', // Will be filled later in client interface
+          cases: [],
+          documents: [],
+          notes: `Auto-created when adding case: ${formCaseNumber.trim()}. Please update email and phone details.`
+        });
+      }
+      
+      try {
+        console.log('Creating new case from calendar:', formCaseNumber.trim());
+        await addCase(basePayload as Omit<Case, 'id' | 'createdAt' | 'updatedAt'>);
+        console.log('Case created successfully from calendar');
+      } catch (error) {
+        console.error('Error creating case from calendar:', error);
+      }
     }
     resetModal();
   };
 
   const handleDelete = async (c: Case) => {
     await deleteCase(c.id);
+  };
+
+  const handleViewCaseDetails = (hearing: any) => {
+    // Try multiple approaches to find the case
+    let associatedCase = null;
+    
+    // First, try using the populated case data if available
+    if (hearing.populatedCase && hearing.populatedCase._id) {
+      associatedCase = cases.find(c => c.id === hearing.populatedCase._id);
+    }
+    
+    // If not found, try the regular caseId approach
+    if (!associatedCase) {
+      associatedCase = cases.find(c => 
+        c.id === hearing.caseId || 
+        c.id === hearing.caseId.toString() || 
+        hearing.caseId === c.id || 
+        hearing.caseId === c.id.toString()
+      );
+    }
+    
+    // If still not found, try finding by case number if we have it
+    if (!associatedCase && hearing.caseNumber && hearing.caseNumber !== `Case ${hearing.caseId}`) {
+      associatedCase = cases.find(c => c.caseNumber === hearing.caseNumber);
+    }
+    
+    if (associatedCase) {
+      setCaseForDetails(associatedCase);
+      setShowCaseDetails(true);
+    }
   };
 
   return (
@@ -344,16 +411,14 @@ const Calendar = () => {
             {selectedDateCases.length > 0 ? (
               <div className="space-y-4">
                 {selectedDateCases.map((event, index) => (
-                  <div key={event.id || index} className={`p-3 border rounded-lg space-y-2 ${
-                    event.isHearing ? 'border-blue-200 bg-blue-50' : ''
-                  }`}>
+                  <div key={event.id || index} className="p-3 border rounded-lg space-y-2">
                     <div className="flex items-center justify-between">
                       <h4 className="font-medium text-sm">
                         {event.isHearing ? `Next Hearing - ${event.caseNumber}` : event.caseNumber}
                       </h4>
                       <div className="flex items-center gap-2">
                         {event.isHearing ? (
-                          <Badge variant="outline" className="bg-blue-100 text-blue-800">
+                          <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">
                             Next Hearing
                           </Badge>
                         ) : (
@@ -367,7 +432,7 @@ const Calendar = () => {
                     <div className="space-y-1 text-xs text-muted-foreground">
                       <div className="flex items-center gap-2">
                         <User className="h-3 w-3" />
-                        <span>{event.isHearing ? 'Scheduled Next Hearing' : event.clientName}</span>
+                        <span>{event.isHearing ? event.clientName : event.clientName}</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <MapPin className="h-3 w-3" />
@@ -384,9 +449,9 @@ const Calendar = () => {
                         </div>
                       )}
                       {event.isHearing && (
-                        <div className="flex items-center gap-2 text-blue-600">
+                        <div className="flex items-center gap-2 text-muted-foreground">
                           <CalendarIcon className="h-3 w-3" />
-                          <span>Next Hearing Date</span>
+                          <span>Scheduled Next Hearing</span>
                         </div>
                       )}
                     </div>
@@ -406,8 +471,13 @@ const Calendar = () => {
                     
                     {event.isHearing && (
                       <div className="flex items-center gap-2 pt-1">
-                        <Button variant="outline" size="sm" disabled>
-                          Next Hearing (View in Case Details)
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="w-full"
+                          onClick={() => handleViewCaseDetails(event)}
+                        >
+                          View in Case Details
                         </Button>
                       </div>
                     )}
@@ -495,7 +565,7 @@ const Calendar = () => {
       </Card>
       {/* Modal */}
       <Dialog open={isModalOpen} onOpenChange={(open) => { if (!open) resetModal(); }}>
-        <DialogContent>
+        <DialogContent className="max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingCase ? 'Edit Hearing' : 'Schedule Hearing'}</DialogTitle>
             <DialogDescription>
@@ -554,6 +624,40 @@ const Calendar = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* AI Conflict Checker */}
+      <CaseConflictChecker 
+        currentCase={editingCase || (isModalOpen ? {
+          id: 'temp',
+          caseNumber: formCaseNumber,
+          clientName: formClientName,
+          opposingParty: '',
+          courtName: formCourtName,
+          judgeName: formJudgeName,
+          hearingDate: selectedDate || new Date(),
+          hearingTime: formHearingTime,
+          status: 'active' as const,
+          priority: formPriority,
+          caseType: '',
+          description: formDescription,
+          nextHearing: undefined,
+          documents: [],
+          notes: '',
+          alerts: [],
+          createdAt: new Date(),
+          updatedAt: new Date()
+        } as Case : undefined)}
+      />
+
+      {/* Case Details Popup */}
+      <CaseDetailsPopup
+        case_={caseForDetails}
+        isOpen={showCaseDetails}
+        onClose={() => {
+          setShowCaseDetails(false);
+          setCaseForDetails(null);
+        }}
+      />
     </div>
   );
 };

@@ -265,7 +265,27 @@ export const LegalDataProvider: React.FC<LegalDataProviderProps> = ({ children }
     const res = await fetch('/api/cases', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(caseData) });
     if (res.ok) {
       const saved = await res.json();
-      setCases(prev => [...prev, mapCaseFromApi(saved)]);
+      const mappedCase = mapCaseFromApi(saved);
+      setCases(prev => [...prev, mappedCase]);
+      
+      // Automatically create a folder for the new case
+      try {
+        const folderName = `${saved.caseNumber} - ${saved.clientName}`;
+        const folderRes = await fetch('/api/documents/folders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ name: folderName })
+        });
+        
+        if (folderRes.ok) {
+          console.log(`Auto-created folder for case: ${folderName}`);
+        } else {
+          console.warn(`Failed to auto-create folder for case: ${folderName}`);
+        }
+      } catch (error) {
+        console.warn('Error auto-creating folder for case:', error);
+      }
     }
   };
 
@@ -288,10 +308,22 @@ export const LegalDataProvider: React.FC<LegalDataProviderProps> = ({ children }
 
   // Client management functions
   const addClient = async (clientData: Omit<Client, 'id' | 'createdAt' | 'updatedAt'>) => {
-    const res = await fetch('/api/clients', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(clientData) });
-    if (res.ok) {
-      const saved = await res.json();
-      setClients(prev => [...prev, mapClientFromApi(saved)]);
+    try {
+      console.log('LegalDataContext: Creating client:', clientData);
+      const res = await fetch('/api/clients', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(clientData) });
+      if (res.ok) {
+        const saved = await res.json();
+        console.log('LegalDataContext: Client created successfully:', saved);
+        setClients(prev => [...prev, mapClientFromApi(saved)]);
+        return saved;
+      } else {
+        const errorData = await res.json().catch(() => ({ error: 'Failed to create client' }));
+        console.error('LegalDataContext: Failed to create client:', errorData);
+        throw new Error(errorData.error || 'Failed to create client');
+      }
+    } catch (error) {
+      console.error('LegalDataContext: Error creating client:', error);
+      throw error;
     }
   };
 
@@ -617,7 +649,9 @@ function mapHearingFromApi(raw: any): Hearing {
     notes: raw.notes,
     createdAt: raw.createdAt ? new Date(raw.createdAt) : new Date(),
     updatedAt: raw.updatedAt ? new Date(raw.updatedAt) : new Date(),
-  } as Hearing;
+    // Preserve populated case data if available
+    populatedCase: raw.caseId && typeof raw.caseId === 'object' ? raw.caseId : null,
+  } as Hearing & { populatedCase?: any };
 }
 
 function mapInvoiceFromApi(raw: any): Invoice {

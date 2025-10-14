@@ -263,7 +263,46 @@ const Documents = () => {
     }
   };
 
-  useEffect(() => { loadFolders(); }, []);
+  const createFoldersForExistingCases = async () => {
+    try {
+      // Get all existing folders
+      const foldersRes = await fetch('/api/documents/folders', { credentials: 'include' });
+      if (!foldersRes.ok) return;
+      
+      const foldersData = await foldersRes.json();
+      const existingFolders = foldersData.folders || [];
+      
+      // Check each case to see if it has a corresponding folder
+      for (const case_ of cases) {
+        const expectedFolderName = `${case_.caseNumber} - ${case_.clientName}`;
+        const folderExists = existingFolders.some((folder: any) => folder.name === expectedFolderName);
+        
+        if (!folderExists) {
+          try {
+            const folderRes = await fetch('/api/documents/folders', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
+              body: JSON.stringify({ name: expectedFolderName })
+            });
+            
+            if (folderRes.ok) {
+              console.log(`Created folder for existing case: ${expectedFolderName}`);
+            }
+          } catch (error) {
+            console.warn(`Failed to create folder for case ${case_.caseNumber}:`, error);
+          }
+        }
+      }
+    } catch (error) {
+      console.warn('Error creating folders for existing cases:', error);
+    }
+  };
+
+  useEffect(() => { 
+    loadFolders(); 
+    createFoldersForExistingCases();
+  }, []);
   useEffect(() => { loadFiles(); }, [currentFolderId]);
 
   const createFolder = async () => {
