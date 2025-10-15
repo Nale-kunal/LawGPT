@@ -5,6 +5,25 @@ import { requireAuth } from '../middleware/auth.js';
 import { sendInvoiceEmail } from '../utils/mailer.js';
 import { logActivity } from '../middleware/activityLogger.js';
 
+// Helper function to generate email content
+function generateInvoiceEmailContent(invoice, client) {
+  const daysUntilDue = Math.ceil((new Date(invoice.dueDate) - new Date()) / (1000 * 60 * 60 * 24));
+  const isOverdue = daysUntilDue < 0;
+  const isDueSoon = daysUntilDue <= 7 && daysUntilDue >= 0;
+  
+  let urgencyText = '';
+  if (isOverdue) {
+    urgencyText = `This invoice is overdue by ${Math.abs(daysUntilDue)} day${Math.abs(daysUntilDue) !== 1 ? 's' : ''}. `;
+  } else if (isDueSoon) {
+    urgencyText = `This invoice is due in ${daysUntilDue} day${daysUntilDue !== 1 ? 's' : ''}. `;
+  }
+
+  const totalAmount = `₹${invoice.total.toLocaleString('en-IN')}`;
+  const dueDate = new Date(invoice.dueDate).toLocaleDateString('en-IN');
+  
+  return `We hope this email finds you well. ${urgencyText}Please find attached your invoice ${invoice.invoiceNumber} for legal services provided. The total amount due is ${totalAmount} and payment is due by ${dueDate}. We have provided detailed breakdown of all services rendered below for your review and records.`;
+}
+
 const router = express.Router();
 router.use(requireAuth);
 
@@ -114,20 +133,40 @@ router.post('/:id/send', async (req, res) => {
   const invoice = await Invoice.findOne({ _id: req.params.id, owner: req.user.userId });
   if (!invoice) return res.status(404).json({ error: 'Not found' });
 
+  // Get client information for personalized email
+  const client = await Client.findOne({ _id: invoice.clientId, owner: req.user.userId });
+  if (!client) return res.status(400).json({ error: 'Client not found for invoice' });
+
   let recipient = to;
   if (!recipient) {
-    const client = await Client.findOne({ _id: invoice.clientId, owner: req.user.userId });
-    if (!client) return res.status(400).json({ error: 'Client not found for invoice' });
     recipient = client.email;
   }
 
   try {
     const result = await sendInvoiceEmail({
       to: recipient,
-      subject: subject || `Invoice ${invoice.invoiceNumber}`,
-      message: message || 'Please find your invoice details below.',
+      subject: subject || `Invoice ${invoice.invoiceNumber} - Legal Services - Due ${new Date(invoice.dueDate).toLocaleDateString('en-IN')}`,
+      message: message || generateInvoiceEmailContent(invoice, client),
       invoice,
+      client,
     });
+    
+    // Log activity
+    await logActivity(
+      req.user.userId,
+      'invoice_sent',
+      `Invoice ${invoice.invoiceNumber} sent to ${client.name}`,
+      'invoice',
+      invoice._id,
+      {
+        invoiceNumber: invoice.invoiceNumber,
+        clientName: client.name,
+        clientEmail: recipient,
+        amount: invoice.total,
+        currency: invoice.currency
+      }
+    );
+    
     res.json(result);
   } catch (e) {
     res.status(500).json({ error: e.message });

@@ -20,6 +20,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 
 // Use Invoice from context
@@ -649,12 +650,12 @@ const Billing = () => {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>Send Invoice</DialogTitle>
-            <DialogDescription>Send invoice to client via email</DialogDescription>
+            <DialogDescription>Open your email client with invoice details pre-filled</DialogDescription>
           </DialogHeader>
           {showSendDialog && (
-            <SendForm invoice={showSendDialog} onCancel={() => setShowSendDialog(null)} onSent={(previewUrl?: string) => {
+            <SendForm invoice={showSendDialog} onCancel={() => setShowSendDialog(null)} onSent={() => {
               setShowSendDialog(null);
-              toast({ title: 'Invoice sent', description: previewUrl ? `Preview: ${previewUrl}` : 'Email dispatched.' });
+              toast({ title: 'Email Client Opened', description: 'Your default email client has been opened with the invoice details pre-filled.' });
             }} />
           )}
         </DialogContent>
@@ -672,31 +673,139 @@ interface SendFormProps {
 }
 
 const SendForm: React.FC<SendFormProps> = ({ invoice, onCancel, onSent }) => {
-  const { clients, sendInvoice } = useLegalData();
+  const { clients } = useLegalData();
   const client = clients.find(c => c.id === invoice.clientId);
+  
+  // Generate auto-generated content
+  const generateAutoContent = () => {
+    const daysUntilDue = Math.ceil((new Date(invoice.dueDate) - new Date()) / (1000 * 60 * 60 * 24));
+    const isOverdue = daysUntilDue < 0;
+    const isDueSoon = daysUntilDue <= 7 && daysUntilDue >= 0;
+    
+    let urgencyText = '';
+    if (isOverdue) {
+      urgencyText = `This invoice is overdue by ${Math.abs(daysUntilDue)} day${Math.abs(daysUntilDue) !== 1 ? 's' : ''}. `;
+    } else if (isDueSoon) {
+      urgencyText = `This invoice is due in ${daysUntilDue} day${daysUntilDue !== 1 ? 's' : ''}. `;
+    }
+
+    const totalAmount = `₹${invoice.total.toLocaleString('en-IN')}`;
+    const dueDate = new Date(invoice.dueDate).toLocaleDateString('en-IN');
+    
+    return {
+      subject: `Invoice ${invoice.invoiceNumber} - Legal Services - Due ${dueDate}`,
+      message: `Dear ${client?.name || 'Valued Client'},
+
+We hope this email finds you well. ${urgencyText}Please find attached your invoice ${invoice.invoiceNumber} for legal services provided. The total amount due is ${totalAmount} and payment is due by ${dueDate}.
+
+INVOICE SUMMARY:
+• Invoice Number: ${invoice.invoiceNumber}
+• Issue Date: ${new Date(invoice.issueDate).toLocaleDateString('en-IN')}
+• Due Date: ${dueDate}
+• Total Amount: ${totalAmount}
+
+SERVICES PROVIDED:
+${invoice.items.map(item => `• ${item.description} (Qty: ${item.quantity}, Rate: ₹${item.unitPrice.toLocaleString('en-IN')}, Amount: ₹${item.amount.toLocaleString('en-IN')})`).join('\n')}
+
+PAYMENT BREAKDOWN:
+• Subtotal: ₹${invoice.subtotal.toLocaleString('en-IN')}
+${invoice.taxRate > 0 ? `• Tax (${invoice.taxRate}%): ₹${invoice.taxAmount.toLocaleString('en-IN')}` : ''}
+${invoice.discountAmount > 0 ? `• Discount: -₹${invoice.discountAmount.toLocaleString('en-IN')}` : ''}
+• TOTAL AMOUNT: ${totalAmount}
+
+${invoice.notes ? `ADDITIONAL NOTES:\n${invoice.notes}\n` : ''}${invoice.terms ? `TERMS & CONDITIONS:\n${invoice.terms}\n` : ''}PAYMENT INSTRUCTIONS:
+Please remit payment by ${dueDate} to avoid any late fees. For payment queries or to discuss payment arrangements, please contact us immediately.
+
+Thank you for choosing our legal services. We appreciate your business and look forward to continuing our professional relationship.
+
+Best regards,
+Legal Services Team`
+    };
+  };
+
+  const autoContent = generateAutoContent();
   const [to, setTo] = useState(client?.email || '');
-  const [subject, setSubject] = useState(`Invoice ${invoice.invoiceNumber}`);
-  const [message, setMessage] = useState(`Dear ${client?.name || 'Client'},\n\nPlease find your invoice ${invoice.invoiceNumber}. Total due: ₹${invoice.total.toLocaleString('en-IN')}.\n\nThank you.`);
-  const [submitting, setSubmitting] = useState(false);
+  const [subject, setSubject] = useState(autoContent.subject);
+  const [message, setMessage] = useState(autoContent.message);
+  const [useAutoContent, setUseAutoContent] = useState(true);
+
+  const handleUseAutoContent = () => {
+    if (useAutoContent) {
+      setSubject(autoContent.subject);
+      setMessage(autoContent.message);
+    }
+    setUseAutoContent(!useAutoContent);
+  };
+
+  const handleSendEmail = () => {
+    // Create mailto URL with pre-filled content
+    const mailtoUrl = `mailto:${to}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}`;
+    
+    // Open default email client
+    window.open(mailtoUrl, '_self');
+    
+    // Call onSent callback to close dialog
+    onSent();
+  };
 
   return (
-    <form onSubmit={async (e) => { e.preventDefault(); setSubmitting(true); try { const res = await sendInvoice(invoice.id, { to, subject, message }); onSent(res.previewUrl); } catch (_) { /* handled by toast in parent */ } finally { setSubmitting(false); } }} className="space-y-3">
+    <div className="space-y-4">
+      <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-200">
+        <div className="flex items-center space-x-2">
+          <Checkbox
+            id="useAutoContent"
+            checked={useAutoContent}
+            onCheckedChange={handleUseAutoContent}
+          />
+          <Label htmlFor="useAutoContent" className="text-sm font-medium text-blue-800">
+            Use auto-generated professional email content
+          </Label>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            setSubject(autoContent.subject);
+            setMessage(autoContent.message);
+          }}
+          className="text-blue-600 border-blue-300 hover:bg-blue-100"
+        >
+          Reset to Auto
+        </Button>
+      </div>
+
       <div>
         <Label>To*</Label>
         <Input value={to} type="email" onChange={(e) => setTo(e.target.value)} required />
       </div>
+      
       <div>
         <Label>Subject*</Label>
         <Input value={subject} onChange={(e) => setSubject(e.target.value)} required />
       </div>
+      
       <div>
         <Label>Message</Label>
-        <Textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={6} />
+        <Textarea 
+          value={message} 
+          onChange={(e) => setMessage(e.target.value)} 
+          rows={12}
+          className="font-mono text-sm"
+        />
+        <p className="text-xs text-muted-foreground mt-1">
+          Clicking "Send Email" will open your default email client (Outlook, Gmail, etc.) with this content pre-filled.
+        </p>
       </div>
+      
       <DialogFooter>
-        <Button type="button" variant="outline" onClick={onCancel} disabled={submitting}>Cancel</Button>
-        <Button type="submit" disabled={submitting}>{submitting ? 'Sending…' : 'Send Email'}</Button>
+        <Button type="button" variant="outline" onClick={onCancel}>
+          Cancel
+        </Button>
+        <Button onClick={handleSendEmail}>
+          Send Email
+        </Button>
       </DialogFooter>
-    </form>
+    </div>
   );
 };
