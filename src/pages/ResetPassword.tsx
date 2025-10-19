@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { apiPost } from '@/lib/api';
 import { useSearchParams, useNavigate, Link, Navigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -47,11 +48,7 @@ const ResetPassword = () => {
     
     setIsSubmitting(true);
     try {
-      const res = await fetch('/api/auth/reset', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, password }),
-      });
+      const res = await apiPost('api/auth/reset', { token, password });
       if (res.ok) {
         toast({ title: 'Password reset successful. Please sign in.' });
         navigate('/login');

@@ -1,4 +1,8 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
+import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api';
+
+// Get API base URL
+const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:5000';
 
 export interface Case {
   id: string;
@@ -141,6 +145,7 @@ interface LegalDataContextType {
   
   // Alerts
   alerts: Alert[];
+  setAlerts: (alerts: Alert[]) => void;
   addAlert: (alertData: Omit<Alert, 'id' | 'createdAt'>) => void;
   markAlertAsRead: (alertId: string) => void;
   deleteAlert: (alertId: string) => void;
@@ -170,13 +175,15 @@ interface LegalDataContextType {
 
 const LegalDataContext = createContext<LegalDataContextType | undefined>(undefined);
 
-export const useLegalData = () => {
+const useLegalData = () => {
   const context = useContext(LegalDataContext);
   if (context === undefined) {
     throw new Error('useLegalData must be used within a LegalDataProvider');
   }
   return context;
 };
+
+export { useLegalData };
 
 interface LegalDataProviderProps {
   children: ReactNode;
@@ -235,12 +242,12 @@ export const LegalDataProvider: React.FC<LegalDataProviderProps> = ({ children }
   React.useEffect(() => {
     // Load initial data from API
     Promise.all([
-      fetch('/api/cases', { credentials: 'include' }).then(r => r.ok ? r.json() : Promise.resolve([])),
-      fetch('/api/clients', { credentials: 'include' }).then(r => r.ok ? r.json() : Promise.resolve([])),
-      fetch('/api/alerts', { credentials: 'include' }).then(r => r.ok ? r.json() : Promise.resolve([])),
-      fetch('/api/time-entries', { credentials: 'include' }).then(r => r.ok ? r.json() : Promise.resolve([])),
-      fetch('/api/hearings', { credentials: 'include' }).then(r => r.ok ? r.json() : Promise.resolve([])),
-      fetch('/api/invoices', { credentials: 'include' }).then(r => r.ok ? r.json() : Promise.resolve([])),
+      apiGet('api/cases').then(r => r.ok ? r.json() : Promise.resolve([])),
+      apiGet('api/clients').then(r => r.ok ? r.json() : Promise.resolve([])),
+      apiGet('api/alerts').then(r => r.ok ? r.json() : Promise.resolve([])),
+      apiGet('api/time-entries').then(r => r.ok ? r.json() : Promise.resolve([])),
+      apiGet('api/hearings').then(r => r.ok ? r.json() : Promise.resolve([])),
+      apiGet('api/invoices').then(r => r.ok ? r.json() : Promise.resolve([])),
     ]).then(([casesRes, clientsRes, alertsRes, timeEntriesRes, hearingsRes, invoicesRes]) => {
       console.log('LegalDataContext: Initial data loaded');
       console.log('LegalDataContext: Cases:', casesRes.length);
@@ -262,7 +269,7 @@ export const LegalDataProvider: React.FC<LegalDataProviderProps> = ({ children }
 
   // Case management functions
   const addCase = async (caseData: Omit<Case, 'id' | 'createdAt' | 'updatedAt'>) => {
-    const res = await fetch('/api/cases', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(caseData) });
+    const res = await apiPost('api/cases', caseData);
     if (res.ok) {
       const saved = await res.json();
       const mappedCase = mapCaseFromApi(saved);
@@ -271,12 +278,7 @@ export const LegalDataProvider: React.FC<LegalDataProviderProps> = ({ children }
       // Automatically create a folder for the new case
       try {
         const folderName = `${saved.caseNumber} - ${saved.clientName}`;
-        const folderRes = await fetch('/api/documents/folders', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ name: folderName })
-        });
+        const folderRes = await apiPost('api/documents/folders', { name: folderName });
         
         if (folderRes.ok) {
           console.log(`Auto-created folder for case: ${folderName}`);
@@ -290,16 +292,62 @@ export const LegalDataProvider: React.FC<LegalDataProviderProps> = ({ children }
   };
 
   const updateCase = async (caseId: string, updates: Partial<Case>) => {
-    const res = await fetch(`/api/cases/${caseId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(updates) });
+    console.log('LegalDataContext: Updating case:', caseId, 'with updates:', updates);
+    
+    // Validate caseId before making API call
+    if (!caseId || caseId === 'undefined' || caseId === 'null') {
+      console.error('LegalDataContext: Invalid case ID provided:', caseId);
+      throw new Error('Invalid case ID provided');
+    }
+    
+    console.log('LegalDataContext: Making API call to:', `${API_BASE_URL}/api/cases/${caseId}`);
+    const res = await fetch(`${API_BASE_URL}/api/cases/${caseId}`, { 
+      method: 'PUT', 
+      headers: { 'Content-Type': 'application/json' }, 
+      credentials: 'include', 
+      body: JSON.stringify(updates) 
+    });
+    
+    console.log('LegalDataContext: API response status:', res.status);
     if (res.ok) {
       const saved = await res.json();
+      console.log('LegalDataContext: Case updated successfully:', saved);
       setCases(prev => prev.map(c => c.id === caseId ? mapCaseFromApi(saved) : c));
+      return saved;
+    } else {
+      const errorText = await res.text();
+      console.error('LegalDataContext: API error status:', res.status);
+      console.error('LegalDataContext: API error text:', errorText);
+      throw new Error(`Failed to update case: ${res.status} ${errorText}`);
     }
   };
 
   const deleteCase = async (caseId: string) => {
-    const res = await fetch(`/api/cases/${caseId}`, { method: 'DELETE', credentials: 'include' });
-    if (res.ok) setCases(prev => prev.filter(c => c.id !== caseId));
+    console.log('LegalDataContext: Deleting case:', caseId);
+    
+    // Validate caseId before making API call
+    if (!caseId || caseId === 'undefined' || caseId === 'null') {
+      console.error('LegalDataContext: Invalid case ID provided:', caseId);
+      throw new Error('Invalid case ID provided');
+    }
+    
+    console.log('LegalDataContext: Making API call to:', `${API_BASE_URL}/api/cases/${caseId}`);
+    const res = await fetch(`${API_BASE_URL}/api/cases/${caseId}`, { 
+      method: 'DELETE', 
+      credentials: 'include' 
+    });
+    
+    console.log('LegalDataContext: API response status:', res.status);
+    if (res.ok) {
+      console.log('LegalDataContext: Case deleted successfully');
+      setCases(prev => prev.filter(c => c.id !== caseId));
+      return true;
+    } else {
+      const errorText = await res.text();
+      console.error('LegalDataContext: API error status:', res.status);
+      console.error('LegalDataContext: API error text:', errorText);
+      throw new Error(`Failed to delete case: ${res.status} ${errorText}`);
+    }
   };
 
   const getCaseById = (caseId: string) => {
@@ -310,7 +358,7 @@ export const LegalDataProvider: React.FC<LegalDataProviderProps> = ({ children }
   const addClient = async (clientData: Omit<Client, 'id' | 'createdAt' | 'updatedAt'>) => {
     try {
       console.log('LegalDataContext: Creating client:', clientData);
-      const res = await fetch('/api/clients', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(clientData) });
+      const res = await apiPost('api/clients', clientData);
       if (res.ok) {
         const saved = await res.json();
         console.log('LegalDataContext: Client created successfully:', saved);
@@ -328,21 +376,67 @@ export const LegalDataProvider: React.FC<LegalDataProviderProps> = ({ children }
   };
 
   const updateClient = async (clientId: string, updates: Partial<Client>) => {
-    const res = await fetch(`/api/clients/${clientId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(updates) });
+    console.log('LegalDataContext: Updating client:', clientId, 'with updates:', updates);
+    
+    // Validate clientId before making API call
+    if (!clientId || clientId === 'undefined' || clientId === 'null') {
+      console.error('LegalDataContext: Invalid client ID provided:', clientId);
+      throw new Error('Invalid client ID provided');
+    }
+    
+    console.log('LegalDataContext: Making API call to:', `${API_BASE_URL}/api/clients/${clientId}`);
+    const res = await fetch(`${API_BASE_URL}/api/clients/${clientId}`, { 
+      method: 'PUT', 
+      headers: { 'Content-Type': 'application/json' }, 
+      credentials: 'include', 
+      body: JSON.stringify(updates) 
+    });
+    
+    console.log('LegalDataContext: API response status:', res.status);
     if (res.ok) {
       const saved = await res.json();
+      console.log('LegalDataContext: Client updated successfully:', saved);
       setClients(prev => prev.map(c => c.id === clientId ? mapClientFromApi(saved) : c));
+      return saved;
+    } else {
+      const errorText = await res.text();
+      console.error('LegalDataContext: API error status:', res.status);
+      console.error('LegalDataContext: API error text:', errorText);
+      throw new Error(`Failed to update client: ${res.status} ${errorText}`);
     }
   };
 
   const deleteClient = async (clientId: string) => {
-    const res = await fetch(`/api/clients/${clientId}`, { method: 'DELETE', credentials: 'include' });
-    if (res.ok) setClients(prev => prev.filter(c => c.id !== clientId));
+    console.log('LegalDataContext: Deleting client:', clientId);
+    
+    // Validate clientId before making API call
+    if (!clientId || clientId === 'undefined' || clientId === 'null') {
+      console.error('LegalDataContext: Invalid client ID provided:', clientId);
+      throw new Error('Invalid client ID provided');
+    }
+    
+    console.log('LegalDataContext: Making API call to:', `${API_BASE_URL}/api/clients/${clientId}`);
+    const res = await fetch(`${API_BASE_URL}/api/clients/${clientId}`, { 
+      method: 'DELETE', 
+      credentials: 'include' 
+    });
+    
+    console.log('LegalDataContext: API response status:', res.status);
+    if (res.ok) {
+      console.log('LegalDataContext: Client deleted successfully');
+      setClients(prev => prev.filter(c => c.id !== clientId));
+      return true;
+    } else {
+      const errorText = await res.text();
+      console.error('LegalDataContext: API error status:', res.status);
+      console.error('LegalDataContext: API error text:', errorText);
+      throw new Error(`Failed to delete client: ${res.status} ${errorText}`);
+    }
   };
 
   // Alert management
   const addAlert = async (alertData: Omit<Alert, 'id' | 'createdAt'>) => {
-    const res = await fetch('/api/alerts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(alertData) });
+    const res = await apiPost('api/alerts', alertData);
     if (res.ok) {
       const saved = await res.json();
       setAlerts(prev => [...prev, mapAlertFromApi(saved)]);
@@ -350,16 +444,66 @@ export const LegalDataProvider: React.FC<LegalDataProviderProps> = ({ children }
   };
 
   const markAlertAsRead = async (alertId: string) => {
-    const res = await fetch(`/api/alerts/${alertId}/read`, { method: 'PATCH', credentials: 'include' });
+    console.log('Context: Marking alert as read:', alertId);
+    console.log('Context: Alert ID type:', typeof alertId);
+    console.log('Context: Alert ID length:', alertId?.length);
+    
+    // Validate alertId before making API call
+    if (!alertId || alertId === 'undefined' || alertId === 'null') {
+      console.error('Context: Invalid alert ID provided:', alertId);
+      throw new Error('Invalid alert ID provided');
+    }
+    
+    console.log('Context: Making API call to:', `${API_BASE_URL}/api/alerts/${alertId}/read`);
+    const res = await fetch(`${API_BASE_URL}/api/alerts/${alertId}/read`, { 
+      method: 'PUT', 
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+      }
+    });
+    console.log('Context: API response status:', res.status);
+    console.log('Context: API response headers:', Object.fromEntries(res.headers.entries()));
+    
     if (res.ok) {
       const saved = await res.json();
+      console.log('Context: Updated alert data:', saved);
       setAlerts(prev => prev.map(a => a.id === alertId ? mapAlertFromApi(saved) : a));
+      return true;
+    } else {
+      const errorText = await res.text();
+      console.error('Context: API error status:', res.status);
+      console.error('Context: API error text:', errorText);
+      throw new Error(`Failed to mark alert as read: ${res.status} ${errorText}`);
     }
   };
 
   const deleteAlert = async (alertId: string) => {
-    const res = await fetch(`/api/alerts/${alertId}`, { method: 'DELETE', credentials: 'include' });
-    if (res.ok) setAlerts(prev => prev.filter(a => a.id !== alertId));
+    console.log('Context: Deleting alert:', alertId);
+    
+    // Validate alertId before making API call
+    if (!alertId || alertId === 'undefined' || alertId === 'null') {
+      console.error('Context: Invalid alert ID provided:', alertId);
+      throw new Error('Invalid alert ID provided');
+    }
+    
+    const res = await fetch(`${API_BASE_URL}/api/alerts/${alertId}`, { 
+      method: 'DELETE', 
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+      }
+    });
+    console.log('Context: API response status:', res.status);
+    if (res.ok) {
+      console.log('Context: Alert deleted successfully');
+      setAlerts(prev => prev.filter(a => a.id !== alertId));
+      return true;
+    } else {
+      const errorText = await res.text();
+      console.error('Context: API error:', errorText);
+      throw new Error('Failed to delete alert');
+    }
   };
 
 
@@ -379,7 +523,7 @@ export const LegalDataProvider: React.FC<LegalDataProviderProps> = ({ children }
 
   // Time tracking
   const addTimeEntry = async (entry: Omit<TimeEntry, 'id'>) => {
-    const res = await fetch('/api/time-entries', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(entry) });
+    const res = await apiPost('api/time-entries', entry);
     if (res.ok) {
       const saved = await res.json();
       setTimeEntries(prev => [...prev, mapTimeEntryFromApi(saved)]);
@@ -389,7 +533,7 @@ export const LegalDataProvider: React.FC<LegalDataProviderProps> = ({ children }
   // Hearing management functions
   const addHearing = async (hearing: Omit<Hearing, 'id' | 'createdAt' | 'updatedAt'>) => {
     console.log('LegalDataContext: Adding hearing:', hearing);
-    const res = await fetch('/api/hearings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(hearing) });
+    const res = await apiPost('api/hearings', hearing);
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({ error: 'Failed to create hearing' }));
       throw new Error(errorData.error || 'Failed to create hearing');
@@ -410,7 +554,7 @@ export const LegalDataProvider: React.FC<LegalDataProviderProps> = ({ children }
     console.log('LegalDataContext: Updating hearing:', hearingId, 'with updates:', updates);
     
     try {
-      const res = await fetch(`/api/hearings/${hearingId}`, { 
+      const res = await fetch(`${API_BASE_URL}/api/hearings/${hearingId}`, { 
         method: 'PUT', 
         headers: { 'Content-Type': 'application/json' }, 
         credentials: 'include', 
@@ -467,12 +611,30 @@ export const LegalDataProvider: React.FC<LegalDataProviderProps> = ({ children }
   };
 
   const deleteHearing = async (hearingId: string) => {
-    const res = await fetch(`/api/hearings/${hearingId}`, { method: 'DELETE', credentials: 'include' });
+    console.log('LegalDataContext: Deleting hearing:', hearingId);
+    
+    // Validate hearingId before making API call
+    if (!hearingId || hearingId === 'undefined' || hearingId === 'null') {
+      console.error('LegalDataContext: Invalid hearing ID provided:', hearingId);
+      throw new Error('Invalid hearing ID provided');
+    }
+    
+    console.log('LegalDataContext: Making API call to:', `${API_BASE_URL}/api/hearings/${hearingId}`);
+    const res = await fetch(`${API_BASE_URL}/api/hearings/${hearingId}`, { 
+      method: 'DELETE', 
+      credentials: 'include' 
+    });
+    
+    console.log('LegalDataContext: API response status:', res.status);
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({ error: 'Failed to delete hearing' }));
+      console.error('LegalDataContext: API error:', errorData);
       throw new Error(errorData.error || 'Failed to delete hearing');
     }
+    
+    console.log('LegalDataContext: Hearing deleted successfully');
     setHearings(prev => prev.filter(h => h.id !== hearingId));
+    return true;
   };
 
   const getHearingsByCaseId = (caseId: string) => {
@@ -490,7 +652,7 @@ export const LegalDataProvider: React.FC<LegalDataProviderProps> = ({ children }
   // Invoices
   const createInvoice = async (invoice: Omit<Invoice, 'id' | 'createdAt' | 'updatedAt'>) => {
     const payload = mapInvoiceToApi(invoice);
-    const res = await fetch('/api/invoices', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(payload) });
+    const res = await apiPost('api/invoices', payload);
     if (res.ok) {
       const saved = await res.json();
       setInvoices(prev => [mapInvoiceFromApi(saved), ...prev]);
@@ -498,10 +660,13 @@ export const LegalDataProvider: React.FC<LegalDataProviderProps> = ({ children }
   };
 
   const updateInvoice = async (invoiceId: string, updates: Partial<Invoice>) => {
-    const res = await fetch(`/api/invoices/${invoiceId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(mapInvoicePartialToApi(updates)) });
+    const res = await apiPut(`api/invoices/${invoiceId}`, mapInvoicePartialToApi(updates));
     if (res.ok) {
       const saved = await res.json();
       setInvoices(prev => prev.map(i => i.id === invoiceId ? mapInvoiceFromApi(saved) : i));
+    } else {
+      const errorText = await res.text().catch(() => 'Failed to update invoice');
+      throw new Error(errorText);
     }
   };
 
@@ -528,6 +693,7 @@ export const LegalDataProvider: React.FC<LegalDataProviderProps> = ({ children }
     updateClient,
     deleteClient,
     alerts,
+    setAlerts,
     addAlert,
     markAlertAsRead,
     deleteAlert,

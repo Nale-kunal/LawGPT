@@ -28,7 +28,7 @@ const Login = () => {
       if (success) {
         toast({
           title: "Login Successful",
-          description: "Welcome to LegalPro!",
+          description: "Welcome to LawGPT!",
         });
       } else {
         toast({
@@ -55,7 +55,7 @@ const Login = () => {
           <div className="flex justify-center mb-4">
             <Scale className="h-12 w-12 text-primary" />
           </div>
-          <CardTitle className="text-2xl font-bold">LegalPro</CardTitle>
+          <CardTitle className="text-2xl font-bold">LawGPT</CardTitle>
           <CardDescription>
             Professional Legal Case Management System for Indian Law Firms
           </CardDescription>

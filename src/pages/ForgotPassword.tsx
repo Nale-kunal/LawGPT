@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { apiPost } from '@/lib/api';
 import { Link, Navigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,11 +25,7 @@ const ForgotPassword = () => {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      const res = await fetch('/api/auth/forgot', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      });
+      const res = await apiPost('api/auth/forgot', { email });
       if (res.ok) {
         const data = await res.json();
         setToken(data.token || null);

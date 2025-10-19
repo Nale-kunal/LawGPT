@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSettings } from '@/contexts/SettingsContext';
 import { LogOut, User, Bell, Moon, Sun, Menu, Settings } from 'lucide-react';
 import { useTheme } from '@/contexts/ThemeContext';
 import { SidebarTrigger } from '@/components/ui/sidebar';
@@ -18,6 +19,7 @@ import { useNavigate } from 'react-router-dom';
 
 export const Header = () => {
   const { user, logout } = useAuth();
+  const { profileData } = useSettings();
   const { alerts } = useLegalData();
   const { theme, setTheme } = useTheme();
   const navigate = useNavigate();
@@ -37,10 +39,10 @@ export const Header = () => {
       <div className="flex items-center gap-4">
         <SidebarTrigger className="md:hidden" />
         <h2 className="text-sm md:text-lg font-semibold text-foreground hidden sm:block">
-          Welcome back, {user?.name}
+          Welcome back, {profileData.name || user?.name}
         </h2>
         <h2 className="text-sm font-semibold text-foreground sm:hidden">
-          {user?.name?.split(' ')[0]}
+          {(profileData.name || user?.name || '').split(' ')[0]}
         </h2>
       </div>
 
@@ -83,7 +85,7 @@ export const Header = () => {
             <Button variant="ghost" className="relative h-8 w-8 rounded-full">
               <Avatar className="h-8 w-8">
                 <AvatarFallback className="bg-primary text-primary-foreground">
-                  {user?.name?.charAt(0) || 'U'}
+                  {(profileData.name || user?.name || 'U').charAt(0)}
                 </AvatarFallback>
               </Avatar>
             </Button>
@@ -91,13 +93,13 @@ export const Header = () => {
           <DropdownMenuContent className="w-56" align="end" forceMount>
             <DropdownMenuLabel className="font-normal">
               <div className="flex flex-col space-y-1">
-                <p className="text-sm font-medium leading-none">{user?.name}</p>
+                <p className="text-sm font-medium leading-none">{profileData.name || user?.name}</p>
                 <p className="text-xs leading-none text-muted-foreground">
-                  {user?.email}
+                  {profileData.email || user?.email}
                 </p>
-                {user?.barNumber && (
+                {(profileData.barNumber || user?.barNumber) && (
                   <p className="text-xs leading-none text-muted-foreground">
-                    Bar No: {user.barNumber}
+                    Bar No: {profileData.barNumber || user?.barNumber}
                   </p>
                 )}
               </div>

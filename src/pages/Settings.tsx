@@ -18,6 +18,8 @@ import {
   Upload
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSettings } from '@/contexts/SettingsContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
@@ -25,44 +27,8 @@ import { useToast } from '@/hooks/use-toast';
 const Settings = () => {
   const { user } = useAuth();
   const { toast } = useToast();
-  
-  // Profile settings
-  const [profileData, setProfileData] = useState({
-    name: user?.name || '',
-    email: user?.email || '',
-    phone: '+91 98765 43210',
-    barNumber: user?.barNumber || '',
-    firm: user?.firm || '',
-    address: '',
-    bio: ''
-  });
-
-  // Notification settings
-  const [notifications, setNotifications] = useState({
-    emailAlerts: true,
-    smsAlerts: true,
-    pushNotifications: true,
-    hearingReminders: true,
-    clientUpdates: true,
-    billingAlerts: false,
-    weeklyReports: true
-  });
-
-  // System preferences
-  const [preferences, setPreferences] = useState({
-    theme: 'light',
-    language: 'en-IN',
-    timezone: 'Asia/Kolkata',
-    dateFormat: 'DD/MM/YYYY',
-    currency: 'INR'
-  });
-
-  // Security settings
-  const [security, setSecurity] = useState({
-    twoFactorEnabled: false,
-    sessionTimeout: '30',
-    loginNotifications: true
-  });
+  const { profileData, setProfileData, notifications, setNotifications, preferences, setPreferences, security, setSecurity } = useSettings();
+  const { setTheme } = useTheme();
 
   const handleSaveProfile = () => {
     toast({
@@ -83,6 +49,8 @@ const Settings = () => {
       title: "Preferences Updated",
       description: "Your system preferences have been saved.",
     });
+    // Immediately apply theme across site
+    setTheme(preferences.theme as any);
   };
 
   const handleExportData = () => {

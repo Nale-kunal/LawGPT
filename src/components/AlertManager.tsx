@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
+import { apiGet } from '@/lib/api';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Bell, Clock, AlertTriangle, CheckCircle, Plus, X, Trash2 } from 'lucide-react';
+import { Bell, Clock, AlertTriangle, CheckCircle, Plus, X, Trash2, Calendar } from 'lucide-react';
 import { useLegalData, Alert } from '@/contexts/LegalDataContext';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
@@ -26,11 +27,13 @@ interface DashboardNotifications {
 }
 
 export const AlertManager = () => {
-  const { cases, alerts, addAlert, markAlertAsRead, deleteAlert } = useLegalData();
+  const { cases, alerts, addAlert, markAlertAsRead, deleteAlert, setAlerts } = useLegalData();
   const [showCreateAlert, setShowCreateAlert] = useState(false);
   const [isActionBusy, setIsActionBusy] = useState(false);
   const [notifications, setNotifications] = useState<DashboardNotifications | null>(null);
   const [loading, setLoading] = useState(true);
+  const [selectedNotification, setSelectedNotification] = useState<any>(null);
+  const [showNotificationPopup, setShowNotificationPopup] = useState(false);
   const { toast } = useToast();
 
   // Form state for creating alerts
@@ -45,7 +48,7 @@ export const AlertManager = () => {
     const fetchNotifications = async () => {
       try {
         setLoading(true);
-        const response = await fetch('/api/dashboard/notifications', { credentials: 'include' });
+        const response = await apiGet('api/dashboard/notifications');
         if (response.ok) {
           const data = await response.json();
           setNotifications(data);
@@ -63,7 +66,7 @@ export const AlertManager = () => {
     return () => clearInterval(interval);
   }, []);
 
-  const handleCreateAlert = () => {
+  const handleCreateAlert = async () => {
     if (!alertForm.caseId || !alertForm.message || !alertForm.alertTime) {
       toast({
         title: "Missing Information",
@@ -73,13 +76,16 @@ export const AlertManager = () => {
       return;
     }
 
-    addAlert({
+    await addAlert({
       caseId: alertForm.caseId,
       type: alertForm.type,
       message: alertForm.message,
       alertTime: new Date(alertForm.alertTime),
       isRead: false
     });
+
+    // Refresh notifications to show the new alert
+    await refreshNotifications();
 
     toast({
       title: "Alert Created",
@@ -115,8 +121,23 @@ export const AlertManager = () => {
     }
   };
 
-  const unreadAlerts = notifications?.alerts.filter(alert => !alert.isRead) || alerts.filter(alert => !alert.isRead);
-  const recentAlerts = notifications?.alerts || [...alerts]
+  // Map notifications alerts to have proper id field
+  const mappedNotificationsAlerts = notifications?.alerts?.map((alert: any) => {
+    const mappedAlert = {
+      id: alert._id || alert.id,
+      caseId: alert.caseId,
+      type: alert.type,
+      message: alert.message,
+      alertTime: new Date(alert.alertTime),
+      isRead: !!alert.isRead,
+      createdAt: new Date(alert.createdAt || alert.createdAt)
+    };
+    console.log('Mapping notification alert:', alert, 'to:', mappedAlert);
+    return mappedAlert;
+  }) || [];
+
+  const unreadAlerts = mappedNotificationsAlerts.filter(alert => !alert.isRead);
+  const recentAlerts = mappedNotificationsAlerts.length > 0 ? mappedNotificationsAlerts : alerts
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     .slice(0, 10);
 
@@ -140,6 +161,43 @@ export const AlertManager = () => {
         return <Badge variant="secondary">High</Badge>;
       default:
         return null;
+    }
+  };
+
+  const handleNotificationClick = (notification: any, type: string) => {
+    setSelectedNotification({ ...notification, type });
+    setShowNotificationPopup(true);
+  };
+
+  const refreshNotifications = async () => {
+    try {
+      console.log('Refreshing notifications...');
+      const response = await apiGet('api/dashboard/notifications');
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Notifications data received:', data);
+        setNotifications(data);
+      }
+      
+      // Also refresh the alerts from the context
+      console.log('Refreshing context alerts...');
+      const alertsResponse = await apiGet('api/alerts');
+      if (alertsResponse.ok) {
+        const alertsData = await alertsResponse.json();
+        console.log('Context alerts data received:', alertsData);
+        // Update the context alerts
+        setAlerts(alertsData.map((alert: any) => ({
+          id: alert._id || alert.id,
+          caseId: alert.caseId,
+          type: alert.type,
+          message: alert.message,
+          alertTime: new Date(alert.alertTime),
+          isRead: !!alert.isRead,
+          createdAt: new Date(alert.createdAt || alert.createdAt)
+        })));
+      }
+    } catch (error) {
+      console.error('Failed to refresh notifications:', error);
     }
   };
 
@@ -266,7 +324,11 @@ export const AlertManager = () => {
                     Today's Hearings ({notifications.todaysHearings.length})
                   </h4>
                   {notifications.todaysHearings.map((hearing: any) => (
-                    <div key={`today-${hearing._id}`} className="p-2 rounded-lg bg-destructive/5 border border-destructive/20">
+                    <div 
+                      key={`today-${hearing._id}`} 
+                      className="p-2 rounded-lg bg-destructive/5 border border-destructive/20 cursor-pointer hover:bg-destructive/10 transition-colors"
+                      onClick={() => handleNotificationClick(hearing, 'today_hearing')}
+                    >
                       <div className="flex items-center justify-between">
                         <div className="flex-1">
                           <p className="text-sm font-medium">{hearing.caseNumber || 'No case number'}</p>
@@ -292,7 +354,11 @@ export const AlertManager = () => {
                     Tomorrow's Hearings ({notifications.tomorrowsHearings.length})
                   </h4>
                   {notifications.tomorrowsHearings.map((hearing: any) => (
-                    <div key={`tomorrow-${hearing._id}`} className="p-2 rounded-lg bg-warning/5 border border-warning/20">
+                    <div 
+                      key={`tomorrow-${hearing._id}`} 
+                      className="p-2 rounded-lg bg-warning/5 border border-warning/20 cursor-pointer hover:bg-warning/10 transition-colors"
+                      onClick={() => handleNotificationClick(hearing, 'tomorrow_hearing')}
+                    >
                       <div className="flex items-center justify-between">
                         <div className="flex-1">
                           <p className="text-sm font-medium">{hearing.caseNumber || 'No case number'}</p>
@@ -318,7 +384,11 @@ export const AlertManager = () => {
                     Other Urgent Cases ({notifications.urgentCases.length})
                   </h4>
                   {notifications.urgentCases.slice(0, 3).map((case_: any) => (
-                    <div key={`urgent-${case_._id}`} className="p-2 rounded-lg bg-destructive/5 border border-destructive/20">
+                    <div 
+                      key={`urgent-${case_._id}`} 
+                      className="p-2 rounded-lg bg-destructive/5 border border-destructive/20 cursor-pointer hover:bg-destructive/10 transition-colors"
+                      onClick={() => handleNotificationClick(case_, 'urgent_case')}
+                    >
                       <div className="flex items-center justify-between">
                         <div className="flex-1">
                           <p className="text-sm font-medium">{case_.caseNumber || 'No case number'}</p>
@@ -346,7 +416,11 @@ export const AlertManager = () => {
                     Overdue Invoices ({notifications.overdueInvoices.length})
                   </h4>
                   {notifications.overdueInvoices.slice(0, 3).map((invoice: any) => (
-                    <div key={`overdue-${invoice._id}`} className="p-2 rounded-lg bg-destructive/5 border border-destructive/20">
+                    <div 
+                      key={`overdue-${invoice._id}`} 
+                      className="p-2 rounded-lg bg-destructive/5 border border-destructive/20 cursor-pointer hover:bg-destructive/10 transition-colors"
+                      onClick={() => handleNotificationClick(invoice, 'overdue_invoice')}
+                    >
                       <div className="flex items-center justify-between">
                         <div className="flex-1">
                           <p className="text-sm font-medium">{invoice.invoiceNumber}</p>
@@ -372,15 +446,17 @@ export const AlertManager = () => {
                     Custom Alerts
                   </h4>
                   {recentAlerts.slice(0, 3).map((alert) => {
+                    console.log('Rendering alert:', alert, 'isRead:', alert.isRead, 'id:', alert.id);
                     const associatedCase = cases.find(c => c.id === alert.caseId);
                     const isUpcoming = new Date(alert.alertTime) > new Date();
                     
                     return (
                       <div 
                         key={alert.id} 
-                        className={`p-3 rounded-lg border transition-colors overflow-hidden ${
+                        className={`p-3 rounded-lg border transition-colors overflow-hidden cursor-pointer hover:opacity-80 ${
                           alert.isRead ? 'bg-muted/30' : 'bg-primary/5 border-primary/20'
                         }`}
+                        onClick={() => handleNotificationClick(alert, 'custom_alert')}
                       >
                         <div className="flex items-start justify-between">
                           <div className="flex items-start gap-3 flex-1 min-w-0">
@@ -408,13 +484,36 @@ export const AlertManager = () => {
                             </div>
                           </div>
                           
-                          <div className="flex gap-1">
+                          <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
                             {!alert.isRead && (
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={async () => { if (isActionBusy) return; setIsActionBusy(true); await markAlertAsRead(alert.id); setIsActionBusy(false); }}
-                                disabled={isActionBusy}
+                                onClick={async () => { 
+                                  if (isActionBusy || !alert.id) return; 
+                                  setIsActionBusy(true); 
+                                  try {
+                                    console.log('Mark as read clicked for alert:', alert);
+                                    await markAlertAsRead(alert.id); 
+                                    console.log('Mark as read successful, refreshing notifications...');
+                                    await refreshNotifications();
+                                    console.log('Notifications refreshed');
+                                    toast({
+                                      title: "Alert Marked as Read",
+                                      description: "The alert has been marked as read successfully",
+                                    });
+                                  } catch (error) {
+                                    console.error('Failed to mark alert as read:', error);
+                                    toast({
+                                      title: "Error",
+                                      description: "Failed to mark alert as read",
+                                      variant: "destructive"
+                                    });
+                                  } finally {
+                                    setIsActionBusy(false); 
+                                  }
+                                }}
+                                disabled={isActionBusy || !alert.id}
                               >
                                 <CheckCircle className="h-4 w-4" />
                               </Button>
@@ -422,8 +521,28 @@ export const AlertManager = () => {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={async () => { if (isActionBusy) return; setIsActionBusy(true); await deleteAlert(alert.id); setIsActionBusy(false); }}
-                              disabled={isActionBusy}
+                              onClick={async () => { 
+                                if (isActionBusy || !alert.id) return; 
+                                setIsActionBusy(true); 
+                                try {
+                                  await deleteAlert(alert.id); 
+                                  await refreshNotifications();
+                                  toast({
+                                    title: "Alert Deleted",
+                                    description: "The alert has been deleted successfully",
+                                  });
+                                } catch (error) {
+                                  console.error('Failed to delete alert:', error);
+                                  toast({
+                                    title: "Error",
+                                    description: "Failed to delete alert",
+                                    variant: "destructive"
+                                  });
+                                } finally {
+                                  setIsActionBusy(false); 
+                                }
+                              }}
+                              disabled={isActionBusy || !alert.id}
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -441,7 +560,7 @@ export const AlertManager = () => {
                 notifications.tomorrowsHearings.length === 0 &&
                 notifications.urgentCases.length === 0 &&
                 notifications.overdueInvoices.length === 0 &&
-                recentAlerts.length === 0
+                mappedNotificationsAlerts.length === 0
               )) && (
                 <div className="text-center py-8 text-muted-foreground">
                   <Bell className="h-12 w-12 mx-auto mb-2 opacity-50" />
@@ -486,6 +605,208 @@ export const AlertManager = () => {
           )}
         </div>
       </CardContent>
+
+      {/* Notification Popup Dialog */}
+      <Dialog open={showNotificationPopup} onOpenChange={setShowNotificationPopup}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {selectedNotification?.type === 'today_hearing' && <Clock className="h-5 w-5 text-destructive" />}
+              {selectedNotification?.type === 'tomorrow_hearing' && <Calendar className="h-5 w-5 text-warning" />}
+              {selectedNotification?.type === 'urgent_case' && <AlertTriangle className="h-5 w-5 text-destructive" />}
+              {selectedNotification?.type === 'overdue_invoice' && <AlertTriangle className="h-5 w-5 text-destructive" />}
+              {selectedNotification?.type === 'custom_alert' && <Bell className="h-5 w-5 text-primary" />}
+              {selectedNotification?.type === 'today_hearing' && "Today's Hearing Details"}
+              {selectedNotification?.type === 'tomorrow_hearing' && "Tomorrow's Hearing Details"}
+              {selectedNotification?.type === 'urgent_case' && "Urgent Case Details"}
+              {selectedNotification?.type === 'overdue_invoice' && "Overdue Invoice Details"}
+              {selectedNotification?.type === 'custom_alert' && "Custom Alert Details"}
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {selectedNotification && (
+              <>
+                {/* Case Information */}
+                {(selectedNotification.type === 'today_hearing' || selectedNotification.type === 'tomorrow_hearing' || selectedNotification.type === 'urgent_case') && (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label className="text-sm font-medium text-muted-foreground">Case Number</Label>
+                        <p className="text-lg font-semibold">{selectedNotification.caseNumber || 'No case number'}</p>
+                      </div>
+                      <div>
+                        <Label className="text-sm font-medium text-muted-foreground">Client Name</Label>
+                        <p className="text-lg">{selectedNotification.clientName || 'No client'}</p>
+                      </div>
+                    </div>
+                    
+                    {selectedNotification.courtName && (
+                      <div>
+                        <Label className="text-sm font-medium text-muted-foreground">Court Name</Label>
+                        <p className="text-base">{selectedNotification.courtName}</p>
+                      </div>
+                    )}
+                    
+                    {selectedNotification.judgeName && (
+                      <div>
+                        <Label className="text-sm font-medium text-muted-foreground">Judge Name</Label>
+                        <p className="text-base">{selectedNotification.judgeName}</p>
+                      </div>
+                    )}
+                    
+                    {selectedNotification.hearingDate && (
+                      <div>
+                        <Label className="text-sm font-medium text-muted-foreground">Hearing Date</Label>
+                        <p className="text-base">{new Date(selectedNotification.hearingDate).toLocaleDateString('en-IN', {
+                          weekday: 'long',
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric'
+                        })}</p>
+                      </div>
+                    )}
+                    
+                    {selectedNotification.hearingTime && (
+                      <div>
+                        <Label className="text-sm font-medium text-muted-foreground">Hearing Time</Label>
+                        <p className="text-base">{selectedNotification.hearingTime}</p>
+                      </div>
+                    )}
+                    
+                    {selectedNotification.priority && (
+                      <div>
+                        <Label className="text-sm font-medium text-muted-foreground">Priority</Label>
+                        <div className="mt-1">
+                          {getUrgencyBadge(selectedNotification.priority)}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {selectedNotification.caseType && (
+                      <div>
+                        <Label className="text-sm font-medium text-muted-foreground">Case Type</Label>
+                        <p className="text-base">{selectedNotification.caseType}</p>
+                      </div>
+                    )}
+                    
+                    {selectedNotification.description && (
+                      <div>
+                        <Label className="text-sm font-medium text-muted-foreground">Description</Label>
+                        <p className="text-base whitespace-pre-wrap">{selectedNotification.description}</p>
+                      </div>
+                    )}
+                    
+                    {selectedNotification.notes && (
+                      <div>
+                        <Label className="text-sm font-medium text-muted-foreground">Notes</Label>
+                        <p className="text-base whitespace-pre-wrap">{selectedNotification.notes}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                {/* Invoice Information */}
+                {selectedNotification.type === 'overdue_invoice' && (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label className="text-sm font-medium text-muted-foreground">Invoice Number</Label>
+                        <p className="text-lg font-semibold">{selectedNotification.invoiceNumber}</p>
+                      </div>
+                      <div>
+                        <Label className="text-sm font-medium text-muted-foreground">Amount</Label>
+                        <p className="text-lg font-semibold text-destructive">₹{selectedNotification.total?.toLocaleString('en-IN')}</p>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <Label className="text-sm font-medium text-muted-foreground">Due Date</Label>
+                      <p className="text-base">{new Date(selectedNotification.dueDate).toLocaleDateString('en-IN', {
+                        weekday: 'long',
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric'
+                      })}</p>
+                    </div>
+                    
+                    {selectedNotification.status && (
+                      <div>
+                        <Label className="text-sm font-medium text-muted-foreground">Status</Label>
+                        <p className="text-base capitalize">{selectedNotification.status}</p>
+                      </div>
+                    )}
+                    
+                    {selectedNotification.currency && (
+                      <div>
+                        <Label className="text-sm font-medium text-muted-foreground">Currency</Label>
+                        <p className="text-base">{selectedNotification.currency}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                {/* Custom Alert Information */}
+                {selectedNotification.type === 'custom_alert' && (
+                  <div className="space-y-3">
+                    <div>
+                      <Label className="text-sm font-medium text-muted-foreground">Alert Message</Label>
+                      <p className="text-lg font-semibold">{selectedNotification.message}</p>
+                    </div>
+                    
+                    <div>
+                      <Label className="text-sm font-medium text-muted-foreground">Alert Type</Label>
+                      <div className="mt-1">
+                        <Badge variant={getAlertBadgeColor(selectedNotification.type)}>
+                          {selectedNotification.type}
+                        </Badge>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <Label className="text-sm font-medium text-muted-foreground">Alert Time</Label>
+                      <p className="text-base">{new Date(selectedNotification.alertTime).toLocaleString('en-IN', {
+                        weekday: 'long',
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}</p>
+                    </div>
+                    
+                    {selectedNotification.caseId && (
+                      <div>
+                        <Label className="text-sm font-medium text-muted-foreground">Associated Case</Label>
+                        <p className="text-base">
+                          {cases.find(c => c.id === selectedNotification.caseId)?.caseNumber || 'Case not found'}
+                        </p>
+                      </div>
+                    )}
+                    
+                    <div>
+                      <Label className="text-sm font-medium text-muted-foreground">Status</Label>
+                      <div className="mt-1">
+                        {selectedNotification.isRead ? (
+                          <Badge variant="secondary">Read</Badge>
+                        ) : (
+                          <Badge variant="destructive">Unread</Badge>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowNotificationPopup(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 };

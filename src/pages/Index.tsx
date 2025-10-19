@@ -29,7 +29,7 @@ const Index = () => {
       <div className="container mx-auto px-4 py-16">
         <div className="text-center text-white mb-12">
           <Scale className="h-16 w-16 mx-auto mb-6" />
-          <h1 className="text-5xl font-bold mb-4">LegalPro</h1>
+          <h1 className="text-5xl font-bold mb-4">LawGPT</h1>
           <p className="text-xl mb-8">Professional Legal Case Management for Indian Law Firms</p>
           <Button size="lg" onClick={() => navigate('/login')} className="bg-white text-primary hover:bg-white/90">
             Get Started

@@ -64,7 +64,8 @@ export const CaseDetailsPopup: React.FC<CaseDetailsPopupProps> = ({ case_, isOpe
     
     try {
       console.log('CaseDetailsPopup: Reloading hearings from API for case:', case_.id);
-      const response = await fetch(`/api/hearings/case/${case_.id}`, { 
+      const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:5000';
+      const response = await fetch(`${API_BASE_URL}/api/hearings/case/${case_.id}`, { 
         credentials: 'include' 
       });
       
@@ -108,6 +109,8 @@ export const CaseDetailsPopup: React.FC<CaseDetailsPopupProps> = ({ case_, isOpe
         setTimeout(() => {
           console.log('CaseDetailsPopup: Final hearing count after reload:', mappedHearings.length);
         }, 100);
+      } else {
+        console.error('CaseDetailsPopup: Failed to reload hearings:', response.status);
       }
     } catch (error) {
       console.error('CaseDetailsPopup: Error reloading hearings:', error);
@@ -124,12 +127,16 @@ export const CaseDetailsPopup: React.FC<CaseDetailsPopupProps> = ({ case_, isOpe
   useEffect(() => {
     if (case_ && isOpen) {
       setIsLoading(true);
-      // Load hearings when popup opens
-      reloadHearings();
-      // Small delay to show loading state
-      setTimeout(() => {
+      console.log('CaseDetailsPopup: Popup opened for case:', case_.id);
+      
+      // Always reload hearings when popup opens to ensure fresh data
+      reloadHearings().then(() => {
+        console.log('CaseDetailsPopup: Hearings reloaded successfully');
         setIsLoading(false);
-      }, 100);
+      }).catch((error) => {
+        console.error('CaseDetailsPopup: Error reloading hearings:', error);
+        setIsLoading(false);
+      });
     }
   }, [case_, isOpen]);
 

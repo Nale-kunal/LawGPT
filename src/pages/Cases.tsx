@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -27,6 +28,7 @@ import { CaseDetailsPopup } from '@/components/CaseDetailsPopup';
 
 const Cases = () => {
   const { cases, clients, addCase, updateCase, deleteCase, addClient } = useLegalData();
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [priorityFilter, setPriorityFilter] = useState('all');
@@ -494,6 +496,17 @@ const Cases = () => {
                   }}
                 >
                   Edit
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const folderName = `${case_.caseNumber} - ${case_.clientName}`;
+                    navigate(`/dashboard/documents?folderName=${encodeURIComponent(folderName)}`);
+                  }}
+                >
+                  Open Folder
                 </Button>
                 <Button 
                   size="sm" 

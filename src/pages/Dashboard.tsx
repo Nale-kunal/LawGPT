@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { apiGet } from '@/lib/api';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -20,6 +21,7 @@ import {
 } from 'lucide-react';
 import { useLegalData } from '@/contexts/LegalDataContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSettings } from '@/contexts/SettingsContext';
 import { AlertManager } from '@/components/AlertManager';
 
 interface DashboardStats {
@@ -48,6 +50,7 @@ interface Activity {
 const Dashboard = () => {
   const { cases, clients, alerts } = useLegalData();
   const { user } = useAuth();
+  const { profileData } = useSettings();
   const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
   const [recentActivity, setRecentActivity] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
@@ -59,8 +62,8 @@ const Dashboard = () => {
         console.log('Fetching dashboard data...');
         
         const [statsRes, activityRes] = await Promise.all([
-          fetch('/api/dashboard/stats', { credentials: 'include' }),
-          fetch('/api/dashboard/activity', { credentials: 'include' })
+          apiGet('api/dashboard/stats'),
+          apiGet('api/dashboard/activity')
         ]);
         
         console.log('Stats response:', statsRes.ok, statsRes.status);
@@ -234,7 +237,7 @@ const Dashboard = () => {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold text-foreground">
-            Welcome back, {user?.name?.split(' ')[0]}!
+            Welcome back, {(profileData.name || user?.name || '').split(' ')[0]}!
           </h1>
           <p className="text-sm md:text-base text-muted-foreground">
             Here's what's happening with your practice today

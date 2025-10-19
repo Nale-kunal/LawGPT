@@ -96,7 +96,7 @@ const Signup = () => {
       if (result.success) {
         toast({
           title: "Registration Successful",
-          description: "Welcome to LegalPro! You are now logged in.",
+          description: "Welcome to LawGPT! You are now logged in.",
         });
         // Navigate to dashboard - the auth context will handle the redirect
       } else {
@@ -124,7 +124,7 @@ const Signup = () => {
           <div className="flex justify-center mb-4">
             <Scale className="h-12 w-12 text-primary" />
           </div>
-          <CardTitle className="text-2xl font-bold">Join LegalPro</CardTitle>
+          <CardTitle className="text-2xl font-bold">Join LawGPT</CardTitle>
           <CardDescription>
             Create your account to start managing your legal practice
           </CardDescription>

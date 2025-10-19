@@ -581,7 +581,7 @@ const Billing = () => {
 
       {/* View Receipt Modal */}
       <Dialog open={!!selectedInvoice} onOpenChange={(open) => { if (!open) setSelectedInvoice(null); }}>
-        <DialogContent className="max-w-3xl">
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Invoice Receipt</DialogTitle>
             <DialogDescription>Complete billing details</DialogDescription>
@@ -678,7 +678,8 @@ const SendForm: React.FC<SendFormProps> = ({ invoice, onCancel, onSent }) => {
   
   // Generate auto-generated content
   const generateAutoContent = () => {
-    const daysUntilDue = Math.ceil((new Date(invoice.dueDate) - new Date()) / (1000 * 60 * 60 * 24));
+    const msUntilDue = new Date(invoice.dueDate).getTime() - Date.now();
+    const daysUntilDue = Math.ceil(msUntilDue / (1000 * 60 * 60 * 24));
     const isOverdue = daysUntilDue < 0;
     const isDueSoon = daysUntilDue <= 7 && daysUntilDue >= 0;
     

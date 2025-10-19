@@ -1,210 +1,319 @@
-# LawyerZen Dashboard - Deployment Guide
+# Lawyer Zen - Separate Deployment Guide
 
-## Overview
+This guide explains how to deploy the Lawyer Zen application with separate frontend and backend deployments.
 
-This guide provides complete setup instructions for the LawyerZen dashboard with all the fixes and improvements implemented.
+## Project Structure
 
-## What's Been Fixed
+After separation, you have two independent projects:
 
-### 1. Revenue This Month Card
-- ✅ **Fixed**: Now shows real revenue data from invoices and billable time entries
-- ✅ **Database Integration**: Calculates from `Invoice` and `TimeEntry` collections
-- ✅ **Growth Tracking**: Shows month-over-month growth percentage
-- ✅ **Real-time Updates**: Refreshes automatically when new data is added
+```
+lawyer-zen/
+├── backend/                 # Backend API server
+│   ├── src/
+│   ├── server/
+│   ├── package.json
+│   ├── index.js
+│   └── README.md
+└── frontend/               # Frontend React application
+    ├── src/
+    ├── public/
+    ├── package.json
+    ├── vite.config.ts
+    └── README.md
+```
 
-### 2. Recent Activity Section
-- ✅ **Fixed**: Now shows real activity data instead of static content
-- ✅ **Activity Logging**: Comprehensive logging system for all user actions
-- ✅ **Activity Types**: Cases, clients, invoices, payments, time entries
-- ✅ **Smart Fallback**: Falls back to generating activities from existing data if no logged activities exist
-
-### 3. Notifications System
-- ✅ **Fixed**: Shows today's and tomorrow's hearings
-- ✅ **Urgent Cases**: Displays urgent cases with upcoming hearings
-- ✅ **Overdue Invoices**: Shows overdue payment notifications
-- ✅ **Real-time Data**: Updates every 5 minutes automatically
-- ✅ **Smart Categorization**: Organized by priority and urgency
-
-### 4. Code Quality & Deployment Readiness
-- ✅ **Error Handling**: Comprehensive error handling throughout the application
-- ✅ **API Endpoints**: New `/api/dashboard/*` endpoints for statistics and activity
-- ✅ **Activity Logging**: Automatic activity logging middleware
-- ✅ **Database Models**: New Activity model for tracking user actions
-- ✅ **Performance**: Optimized queries and data fetching
-- ✅ **No Linting Errors**: Clean, production-ready code
-
-## New API Endpoints
-
-### Dashboard Statistics
-- `GET /api/dashboard/stats` - Revenue, cases, clients statistics
-- `GET /api/dashboard/activity` - Recent activity feed
-- `GET /api/dashboard/notifications` - Important notifications
-
-## Setup Instructions
+## Backend Deployment
 
 ### Prerequisites
 - Node.js (v16 or higher)
-- MongoDB (v4.4 or higher)
-- npm or yarn package manager
+- MongoDB (local or cloud instance)
+- Environment variables configured
 
-### 1. Environment Setup
+### Local Development
+1. Navigate to the backend directory:
+   ```bash
+   cd backend
+   ```
 
-Create `.env` file in the server directory:
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+
+3. Create `.env` file from `backend.env.example`:
+   ```bash
+   cp backend.env.example .env
+   ```
+
+4. Configure environment variables in `.env`:
+   ```env
+   MONGODB_URI=mongodb://localhost:27017/lawyer-zen
+   PORT=5000
+   NODE_ENV=development
+   CORS_ORIGIN=http://localhost:8080
+   FRONTEND_URL=http://localhost:8080
+   JWT_SECRET=your-super-secret-jwt-key
+   ```
+
+5. Start the server:
+   ```bash
+   npm run dev
+   ```
+
+### Production Deployment
+
+#### Option 1: Traditional Server
+1. Set up a server with Node.js and MongoDB
+2. Clone the backend repository
+3. Install dependencies: `npm install`
+4. Configure production environment variables
+5. Start with PM2 or similar process manager:
+   ```bash
+   npm start
+   ```
+
+#### Option 2: Docker
+1. Create a Dockerfile in the backend directory:
+   ```dockerfile
+   FROM node:16-alpine
+   WORKDIR /app
+   COPY package*.json ./
+   RUN npm ci --only=production
+   COPY . .
+   EXPOSE 5000
+   CMD ["npm", "start"]
+   ```
+
+2. Build and run:
+   ```bash
+   docker build -t lawyer-zen-backend .
+   docker run -p 5000:5000 --env-file .env lawyer-zen-backend
+   ```
+
+#### Option 3: Cloud Platforms
+- **Heroku**: Deploy directly from Git repository
+- **Railway**: Connect GitHub repository
+- **DigitalOcean App Platform**: Deploy from source code
+- **AWS Elastic Beanstalk**: Deploy Node.js application
+
+### Environment Variables for Production
 ```env
-NODE_ENV=production
+MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/lawyer-zen
 PORT=5000
-MONGODB_URI=mongodb://localhost:27017/lawyer_zen
-JWT_SECRET=your-super-secret-jwt-key
-CORS_ORIGIN=http://localhost:8080
-
-# Email Configuration (optional)
+NODE_ENV=production
+CORS_ORIGIN=https://your-frontend-domain.com
+FRONTEND_URL=https://your-frontend-domain.com
+JWT_SECRET=your-super-secure-jwt-secret-key
 EMAIL_HOST=smtp.gmail.com
 EMAIL_PORT=587
 EMAIL_USER=your-email@gmail.com
 EMAIL_PASS=your-app-password
+EMAIL_FROM=your-email@gmail.com
 ```
 
-### 2. Database Setup
+## Frontend Deployment
 
-Start MongoDB service and ensure it's running on the configured port.
+### Prerequisites
+- Node.js (v16 or higher)
+- Environment variables configured
 
-### 3. Server Setup
+### Local Development
+1. Navigate to the frontend directory (root of the project):
+   ```bash
+   cd .
+   ```
 
-```bash
-cd server
-npm install
-npm start
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+
+3. Create `.env` file from `frontend.env.example`:
+   ```bash
+   cp frontend.env.example .env
+   ```
+
+4. Configure environment variables in `.env`:
+   ```env
+   VITE_API_URL=http://localhost:5000
+   VITE_NODE_ENV=development
+   ```
+
+5. Start the development server:
+   ```bash
+   npm run dev
+   ```
+
+### Production Build
+1. Build the application:
+   ```bash
+   npm run build
+   ```
+
+2. The built files will be in the `dist/` directory
+
+### Production Deployment
+
+#### Option 1: Static Hosting
+Deploy the `dist/` folder to any static hosting service:
+- **Netlify**: Drag and drop the dist folder
+- **Vercel**: Connect GitHub repository
+- **GitHub Pages**: Deploy from GitHub Actions
+- **AWS S3 + CloudFront**: Upload to S3 bucket
+
+#### Option 2: Traditional Web Server
+1. Copy the `dist/` folder to your web server
+2. Configure your web server (Apache/Nginx) to serve the files
+3. Set up proper routing for SPA (Single Page Application)
+
+#### Option 3: Docker
+1. Create a Dockerfile:
+   ```dockerfile
+   FROM node:16-alpine as build
+   WORKDIR /app
+   COPY package*.json ./
+   RUN npm ci
+   COPY . .
+   RUN npm run build
+
+   FROM nginx:alpine
+   COPY --from=build /app/dist /usr/share/nginx/html
+   COPY nginx.conf /etc/nginx/nginx.conf
+   EXPOSE 80
+   CMD ["nginx", "-g", "daemon off;"]
+   ```
+
+2. Create nginx.conf for SPA routing:
+   ```nginx
+   events {
+       worker_connections 1024;
+   }
+   http {
+       include /etc/nginx/mime.types;
+       default_type application/octet-stream;
+       
+       server {
+           listen 80;
+           root /usr/share/nginx/html;
+           index index.html;
+           
+           location / {
+               try_files $uri $uri/ /index.html;
+           }
+       }
+   }
+   ```
+
+### Environment Variables for Production
+```env
+VITE_API_URL=https://your-backend-api-domain.com
+VITE_NODE_ENV=production
 ```
 
-The server will start on port 5000 (or your configured PORT).
+## Deployment Checklist
 
-### 4. Client Setup
+### Backend Checklist
+- [ ] MongoDB database is accessible
+- [ ] Environment variables are configured
+- [ ] CORS is configured for frontend domain
+- [ ] JWT secret is secure and unique
+- [ ] Email configuration is working (if using email features)
+- [ ] File upload directory has proper permissions
+- [ ] Health check endpoint is accessible: `GET /api/health`
 
-```bash
-cd ..  # Back to root directory
-npm install
-npm run dev
-```
+### Frontend Checklist
+- [ ] Environment variables are configured
+- [ ] API URL points to the correct backend
+- [ ] Build process completes successfully
+- [ ] Static files are served correctly
+- [ ] SPA routing is configured (if using client-side routing)
+- [ ] HTTPS is configured (recommended for production)
 
-The client will start on port 8080.
+## Testing the Deployment
 
-### 5. Production Deployment
+### Backend Testing
+1. Health check:
+   ```bash
+   curl https://your-backend-domain.com/api/health
+   ```
 
-#### Server (Backend)
-```bash
-cd server
-npm install --production
-npm run build  # If you have a build script
-pm2 start index.js --name lawyer-zen-api
-```
+2. Test API endpoints:
+   ```bash
+   curl -X POST https://your-backend-domain.com/api/auth/register \
+     -H "Content-Type: application/json" \
+     -d '{"name":"Test User","email":"test@example.com","password":"password123"}'
+   ```
 
-#### Client (Frontend)
-```bash
-npm run build
-# Deploy the dist/ folder to your web server
-```
-
-## Database Collections
-
-The application uses the following MongoDB collections:
-
-### Core Collections
-- `users` - User accounts and authentication
-- `cases` - Legal cases and hearings
-- `clients` - Client information
-- `invoices` - Billing and payments
-- `timeentries` - Time tracking for billable hours
-- `alerts` - Custom notifications and reminders
-
-### New Collections
-- `activities` - User activity logging (auto-expires after 90 days)
-
-## Features Overview
-
-### Dashboard Statistics
-- **Total Cases**: Count of all cases with active case breakdown
-- **Clients**: Total registered clients
-- **Today's Hearings**: Cases scheduled for today with urgency indicators
-- **Revenue This Month**: Real revenue calculation from invoices and billable time
-
-### Activity Feed
-- **Case Management**: Creation, updates, and status changes
-- **Client Management**: New registrations and updates
-- **Financial Activities**: Invoice creation, payments received
-- **Time Tracking**: Billable and non-billable time logging
-
-### Smart Notifications
-- **Today's Hearings**: All cases scheduled for today
-- **Tomorrow's Hearings**: Upcoming cases for tomorrow
-- **Urgent Cases**: High-priority cases requiring attention
-- **Overdue Invoices**: Unpaid invoices past due date
-- **Custom Alerts**: User-created reminders and notifications
-
-## Performance Optimizations
-
-### Database Indexes
-- User-based queries are indexed for fast retrieval
-- Activity collection has TTL index for automatic cleanup
-- Date-based queries are optimized with compound indexes
-
-### API Optimizations
-- Efficient aggregation pipelines for revenue calculations
-- Limited result sets to prevent large data transfers
-- Proper error handling to prevent crashes
-
-### Frontend Optimizations
-- Real-time updates without page refresh
-- Loading states for better user experience
-- Responsive design for all device sizes
-
-## Monitoring & Maintenance
-
-### Health Check
-- `GET /api/health` - API health status
-
-### Database Maintenance
-- Activities auto-expire after 90 days
-- Regular MongoDB maintenance recommended
-
-### Logging
-- Server logs all errors and important events
-- Activity logging for user action tracking
+### Frontend Testing
+1. Open the frontend URL in a browser
+2. Test user registration/login
+3. Verify API calls are working
+4. Test file uploads (if applicable)
+5. Check that all routes work correctly
 
 ## Troubleshooting
 
 ### Common Issues
 
-1. **Revenue showing ₹0**
-   - Ensure invoices have `status: 'paid'` and `paidAt` date
-   - Check time entries have `billable: true`
+#### CORS Errors
+- Ensure `CORS_ORIGIN` and `FRONTEND_URL` in backend match your frontend domain
+- Check that the frontend is making requests to the correct backend URL
 
-2. **No recent activity**
-   - Activity logging starts after deployment
-   - Falls back to generating from existing data
+#### API Connection Issues
+- Verify `VITE_API_URL` in frontend environment variables
+- Check that the backend is running and accessible
+- Ensure firewall/security groups allow connections
 
-3. **Notifications not updating**
-   - Check MongoDB connection
-   - Verify case `hearingDate` fields are properly set
+#### File Upload Issues
+- Check file upload directory permissions
+- Verify `UPLOAD_PATH` environment variable
+- Ensure sufficient disk space
 
-4. **API errors**
-   - Check MongoDB connection string
-   - Verify JWT_SECRET is set
-   - Ensure all required environment variables are configured
+#### Authentication Issues
+- Verify JWT secret is the same across deployments
+- Check cookie settings for cross-domain authentication
+- Ensure HTTPS is used in production for secure cookies
+
+### Monitoring
+- Set up logging for both frontend and backend
+- Monitor API response times and error rates
+- Set up alerts for service downtime
+- Monitor database performance
 
 ## Security Considerations
 
-- JWT tokens for authentication
-- User-based data isolation
-- Input validation on all endpoints
-- CORS configuration for production
-- Environment variables for sensitive data
+### Backend Security
+- Use HTTPS in production
+- Implement rate limiting
+- Validate all input data
+- Use secure JWT secrets
+- Implement proper error handling (don't expose sensitive information)
+
+### Frontend Security
+- Use HTTPS in production
+- Implement Content Security Policy (CSP)
+- Sanitize user inputs
+- Use secure cookie settings
+- Implement proper error handling
+
+## Scaling Considerations
+
+### Backend Scaling
+- Use a load balancer for multiple backend instances
+- Implement database connection pooling
+- Use Redis for session storage (if needed)
+- Consider microservices architecture for large applications
+
+### Frontend Scaling
+- Use CDN for static assets
+- Implement caching strategies
+- Consider server-side rendering for SEO
+- Use lazy loading for better performance
 
 ## Support
 
-For issues or questions:
-1. Check the browser console for client-side errors
-2. Check server logs for backend issues
-3. Verify MongoDB connection and data integrity
-4. Ensure all environment variables are properly set
-
-The application is now fully functional with real data integration and ready for production deployment.
+For deployment issues or questions:
+1. Check the individual README files in backend/ and frontend/ directories
+2. Review the troubleshooting section above
+3. Check application logs for error details
+4. Verify environment variable configuration

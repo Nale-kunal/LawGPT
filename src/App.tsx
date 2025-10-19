@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 import { LegalDataProvider } from "./contexts/LegalDataContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
+import { SettingsProvider } from "./contexts/SettingsContext";
 
 // Import Pages
 import Index from "./pages/Index";
@@ -40,6 +41,7 @@ const App = () => (
     <ThemeProvider defaultTheme="light" storageKey="legal-pro-theme">
       <AuthProvider>
         <LegalDataProvider>
+          <SettingsProvider>
           <TooltipProvider>
             <Toaster />
             <Sonner />
@@ -69,6 +71,7 @@ const App = () => (
               </Routes>
             </BrowserRouter>
           </TooltipProvider>
+          </SettingsProvider>
         </LegalDataProvider>
       </AuthProvider>
     </ThemeProvider>

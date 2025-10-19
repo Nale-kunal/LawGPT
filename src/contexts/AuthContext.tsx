@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { apiGet, apiPost } from '@/lib/api';
 
 interface User {
   id: string;
@@ -53,7 +54,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         const storedUser = localStorage.getItem('legal_pro_user');
         if (storedUser) {
           // Verify the stored user with the server
-          const res = await fetch('/api/auth/me', { credentials: 'include' });
+          const res = await apiGet('api/auth/me');
           if (res.ok) {
             const data = await res.json();
             setUser(data.user);
@@ -67,7 +68,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           }
         } else {
           // No stored user, check if server has a valid session
-          const res = await fetch('/api/auth/me', { credentials: 'include' });
+          const res = await apiGet('api/auth/me');
           if (res.ok) {
             const data = await res.json();
             setUser(data.user);
@@ -95,12 +96,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const login = async (email: string, password: string): Promise<boolean> => {
     setIsLoading(true);
     try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ email, password }),
-      });
+      const res = await apiPost('api/auth/login', { email, password });
       if (!res.ok) {
         setIsLoading(false);
         return false;
@@ -127,12 +123,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const register = async (userData: RegisterData): Promise<{ success: boolean; error?: string }> => {
     setIsLoading(true);
     try {
-      const res = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(userData),
-      });
+      const res = await apiPost('api/auth/register', userData);
       
       const data = await res.json();
       
@@ -162,7 +153,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const logout = async () => {
     try {
-      await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+      await apiPost('api/auth/logout');
     } catch (error) {
       console.error('Logout request failed:', error);
     } finally {
