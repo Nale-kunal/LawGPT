@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Bell, Clock, AlertTriangle, CheckCircle, Plus, X, Trash2 } from 'lucide-react';
+import { Bell, Clock, AlertTriangle, CheckCircle, Plus, X, Trash2, Calendar } from 'lucide-react';
 import { useLegalData, Alert } from '@/contexts/LegalDataContext';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';

@@ -56,33 +56,23 @@ const Dashboard = () => {
     const fetchDashboardData = async () => {
       try {
         setLoading(true);
-        console.log('Fetching dashboard data...');
         
         const [statsRes, activityRes] = await Promise.all([
           fetch('/api/dashboard/stats', { credentials: 'include' }),
           fetch('/api/dashboard/activity', { credentials: 'include' })
         ]);
         
-        console.log('Stats response:', statsRes.ok, statsRes.status);
-        console.log('Activity response:', activityRes.ok, activityRes.status);
-        
         if (statsRes.ok) {
           const stats = await statsRes.json();
-          console.log('Stats data:', stats);
           setDashboardStats(stats);
-        } else {
-          console.error('Stats API error:', await statsRes.text());
         }
         
         if (activityRes.ok) {
           const activity = await activityRes.json();
-          console.log('Activity data:', activity);
           setRecentActivity(activity);
-        } else {
-          console.error('Activity API error:', await activityRes.text());
         }
       } catch (error) {
-        console.error('Failed to fetch dashboard data:', error);
+        // Silently handle errors
       } finally {
         setLoading(false);
       }

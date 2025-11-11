@@ -242,21 +242,15 @@ export const LegalDataProvider: React.FC<LegalDataProviderProps> = ({ children }
       fetch('/api/hearings', { credentials: 'include' }).then(r => r.ok ? r.json() : Promise.resolve([])),
       fetch('/api/invoices', { credentials: 'include' }).then(r => r.ok ? r.json() : Promise.resolve([])),
     ]).then(([casesRes, clientsRes, alertsRes, timeEntriesRes, hearingsRes, invoicesRes]) => {
-      console.log('LegalDataContext: Initial data loaded');
-      console.log('LegalDataContext: Cases:', casesRes.length);
-      console.log('LegalDataContext: Clients:', clientsRes.length);
-      console.log('LegalDataContext: Hearings:', hearingsRes.length, hearingsRes);
       setCases(casesRes.map(mapCaseFromApi));
       setClients(clientsRes.map(mapClientFromApi));
       setAlerts(alertsRes.map(mapAlertFromApi));
       setTimeEntries(timeEntriesRes.map(mapTimeEntryFromApi));
       const mappedHearings = hearingsRes.map(mapHearingFromApi);
-      console.log('LegalDataContext: Mapped hearings:', mappedHearings.length, mappedHearings);
       setHearings(mappedHearings);
       setInvoices(invoicesRes.map(mapInvoiceFromApi));
     }).catch((error) => {
-      console.error('LegalDataContext: Error loading initial data:', error);
-      // Silently ignore for now; UI can still function
+      // Silently ignore errors; UI can still function without data
     });
   }, []);
 
@@ -309,20 +303,16 @@ export const LegalDataProvider: React.FC<LegalDataProviderProps> = ({ children }
   // Client management functions
   const addClient = async (clientData: Omit<Client, 'id' | 'createdAt' | 'updatedAt'>) => {
     try {
-      console.log('LegalDataContext: Creating client:', clientData);
       const res = await fetch('/api/clients', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(clientData) });
       if (res.ok) {
         const saved = await res.json();
-        console.log('LegalDataContext: Client created successfully:', saved);
         setClients(prev => [...prev, mapClientFromApi(saved)]);
         return saved;
       } else {
         const errorData = await res.json().catch(() => ({ error: 'Failed to create client' }));
-        console.error('LegalDataContext: Failed to create client:', errorData);
         throw new Error(errorData.error || 'Failed to create client');
       }
     } catch (error) {
-      console.error('LegalDataContext: Error creating client:', error);
       throw error;
     }
   };
@@ -388,27 +378,18 @@ export const LegalDataProvider: React.FC<LegalDataProviderProps> = ({ children }
 
   // Hearing management functions
   const addHearing = async (hearing: Omit<Hearing, 'id' | 'createdAt' | 'updatedAt'>) => {
-    console.log('LegalDataContext: Adding hearing:', hearing);
     const res = await fetch('/api/hearings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(hearing) });
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({ error: 'Failed to create hearing' }));
       throw new Error(errorData.error || 'Failed to create hearing');
     }
     const saved = await res.json();
-    console.log('LegalDataContext: Hearing saved from API:', saved);
     const mappedHearing = mapHearingFromApi(saved);
-    console.log('LegalDataContext: Mapped hearing:', mappedHearing);
-    setHearings(prev => {
-      const newHearings = [...prev, mappedHearing];
-      console.log('LegalDataContext: Updated hearings state:', newHearings.length, 'hearings');
-      return newHearings;
-    });
+    setHearings(prev => [...prev, mappedHearing]);
     return saved;
   };
 
   const updateHearing = async (hearingId: string, updates: Partial<Hearing>) => {
-    console.log('LegalDataContext: Updating hearing:', hearingId, 'with updates:', updates);
-    
     try {
       const res = await fetch(`/api/hearings/${hearingId}`, { 
         method: 'PUT', 
@@ -423,45 +404,30 @@ export const LegalDataProvider: React.FC<LegalDataProviderProps> = ({ children }
       }
       
       const saved = await res.json();
-      console.log('LegalDataContext: Hearing updated from API:', saved);
       const mappedHearing = mapHearingFromApi(saved);
-      console.log('LegalDataContext: Mapped updated hearing:', mappedHearing);
       
-      // BULLETPROOF UPDATE: Always ensure the hearing exists in state
+      // Update hearing in state
       setHearings(prev => {
-        console.log('LegalDataContext: Current hearings before update:', prev.length, prev.map(h => ({ id: h.id, caseId: h.caseId })));
-        
-        // Find the hearing to update by multiple criteria
         const hearingIndex = prev.findIndex(h => {
           const idMatch = h.id === hearingId || 
                          h.id === hearingId.toString() || 
                          h.id === saved._id || 
                          h.id === saved.id;
           const caseIdMatch = h.caseId === saved.caseId || h.caseId === saved.caseId?.toString();
-          console.log('LegalDataContext: Checking hearing:', h.id, 'against', hearingId, 'idMatch:', idMatch, 'caseIdMatch:', caseIdMatch);
           return idMatch || (caseIdMatch && h.hearingDate === saved.hearingDate);
         });
         
-        console.log('LegalDataContext: Found hearing at index:', hearingIndex);
-        
         if (hearingIndex !== -1) {
-          // Update existing hearing
           const updatedHearings = [...prev];
           updatedHearings[hearingIndex] = mappedHearing;
-          console.log('LegalDataContext: Updated hearing at index:', hearingIndex, 'new hearing:', mappedHearing);
           return updatedHearings;
         } else {
-          // Hearing not found, add it to the list
-          console.log('LegalDataContext: Hearing not found, adding new hearing');
-          const newHearings = [...prev, mappedHearing];
-          console.log('LegalDataContext: Added hearing to list, total hearings:', newHearings.length);
-          return newHearings;
+          return [...prev, mappedHearing];
         }
       });
       
       return saved;
     } catch (error) {
-      console.error('LegalDataContext: Update hearing error:', error);
       throw error;
     }
   };
@@ -476,15 +442,9 @@ export const LegalDataProvider: React.FC<LegalDataProviderProps> = ({ children }
   };
 
   const getHearingsByCaseId = (caseId: string) => {
-    console.log('LegalDataContext: Getting hearings for case:', caseId);
-    console.log('LegalDataContext: All hearings:', hearings.length, hearings);
-    const caseHearings = hearings.filter(h => {
-      const match = h.caseId === caseId || h.caseId === caseId.toString();
-      console.log('LegalDataContext: Comparing hearing caseId:', h.caseId, 'with:', caseId, 'match:', match);
-      return match;
+    return hearings.filter(h => {
+      return h.caseId === caseId || h.caseId === caseId.toString();
     });
-    console.log('LegalDataContext: Filtered hearings for case:', caseHearings.length, caseHearings);
-    return caseHearings;
   };
 
   // Invoices
